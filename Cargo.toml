@@ -1,0 +1,5 @@
+[workspace]
+members = ["crates/*"]
+
+[patch.crates-io]
+runix-derive = { path = "crates/runix-derive" }
