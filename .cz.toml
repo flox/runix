@@ -1,0 +1,13 @@
+[tool]
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.0"
+tag_format = "v$version"
+version_files = [
+  "./crates/runix/Cargo.toml:version",
+  "./crates/runix-derive/Cargo.toml:version"
+]
+changelog_incremental = true
+major_version_zero = true
+annotated_tag = true
+bump_message = "bump: $current_version → $new_version"

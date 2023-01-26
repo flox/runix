@@ -2,3 +2,4 @@
 /Cargo.lock
 .env
 .pre-commit-config.yaml
+.flox
