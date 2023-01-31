@@ -1,3 +1,5 @@
+//! Command's own arguments, Option groups and [InstallableArg]s
+
 use std::path::PathBuf;
 
 use derive_more::{Deref, From};
@@ -62,11 +64,11 @@ impl ToArgs for InstallablesArgs {
     }
 }
 
-/// Nix arguments
-/// should be a proper struct + de/serialization to and from [&str]
+/// `nix develop` options
 #[derive(Debug, Default, Clone, ToArgs)]
 pub struct DevelopArgs {}
 
+/// `nix bundle --bundler <bundler>` option
 #[derive(Clone, From, Deref, Debug)]
 #[from(forward)]
 pub struct Bundler(Installable);
@@ -75,11 +77,13 @@ impl Flag for Bundler {
     const FLAG_TYPE: FlagType<Self> = FlagType::arg();
 }
 
+/// `nix bundle` options
 #[derive(Debug, Default, Clone, ToArgs)]
 pub struct BundleArgs {
     pub bundler: Option<Bundler>,
 }
 
+/// `nix eval --apply <expr>` option
 #[derive(Clone, From, Deref, Debug, Default)]
 #[from(forward)]
 pub struct Apply(String);
@@ -88,8 +92,7 @@ impl Flag for Apply {
     const FLAG_TYPE: FlagType<Self> = FlagType::arg();
 }
 
-/// Options to `nix eval`
-/// https://github.com/NixOS/nix/blob/a6239eb5700ebb85b47bb5f12366404448361f8d/src/nix/eval.cc#LL21-40
+/// [`nix eval`](https://github.com/NixOS/nix/blob/a6239eb5700ebb85b47bb5f12366404448361f8d/src/nix/eval.cc#LL21-40) options
 #[derive(Debug, Default, Clone, ToArgs)]
 pub struct EvalArgs {
     pub apply: Option<Apply>,

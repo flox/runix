@@ -1,3 +1,5 @@
+//! Source installable related arguments, see [SourceArgs]
+
 use derive_more::{Deref, From};
 use runix_derive::ToArgs;
 
@@ -13,6 +15,7 @@ pub struct SourceArgs {
 }
 
 #[derive(Clone, From, Deref, Debug, Default)]
+#[from(forward)]
 pub struct Expr(String);
 impl Flag for Expr {
     const FLAG: &'static str = "--expr";

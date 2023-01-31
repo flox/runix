@@ -1,3 +1,5 @@
+//! A rust implementaiton of the `registry` file format
+
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};

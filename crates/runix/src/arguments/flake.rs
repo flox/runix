@@ -1,3 +1,5 @@
+//! Flake related arguments, see [FlakeArgs]
+
 use derive_more::{Constructor, Deref, From};
 use runix_derive::ToArgs;
 

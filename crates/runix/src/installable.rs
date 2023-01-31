@@ -1,5 +1,8 @@
+//! A much simplified installable representation
+
 use derive_more::Constructor;
 
+/// A much simplified installable representation
 #[derive(Debug, Clone, Constructor)]
 pub struct Installable {
     pub flakeref: FlakeRef,
@@ -36,4 +39,7 @@ impl ToString for Installable {
     }
 }
 
+/// A much simplified FlakeRef representation
+///
+/// to be replaced by the checked implementation in [crate::flake_ref]
 pub type FlakeRef = String;

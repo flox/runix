@@ -1,3 +1,5 @@
+//! Backened independent Command implementations
+
 use std::collections::HashMap;
 
 use derive_more::{Deref, From};
@@ -11,6 +13,7 @@ use crate::command_line::flag::{Flag, FlagType};
 use crate::command_line::{Group, JsonCommand, NixCliCommand, TypedCommand};
 use crate::installable::Installable;
 
+/// `nix build` Command
 #[derive(Debug, Default, Clone)]
 pub struct Build {
     pub flake: FlakeArgs,
@@ -30,11 +33,15 @@ impl NixCliCommand for Build {
 }
 impl JsonCommand for Build {}
 #[derive(Deserialize, Clone, Debug)]
+
+/// Type for an element in the output of `nix build --json`
 pub struct BuildOutEntry {
     #[serde(rename = "drvPath")]
     pub drv_path: String,
     pub outputs: HashMap<String, String>,
 }
+
+/// The output of `nix build --json`
 pub type BuildOut = Vec<BuildOutEntry>;
 impl TypedCommand for Build {
     type Output = BuildOut;
@@ -50,6 +57,7 @@ pub struct FlakeInit {
     pub template: Option<TemplateFlag>,
 }
 
+/// `nix flake init --template <TEMPLATE>` flag
 #[derive(Deref, Debug, Clone, From)]
 #[from(forward)]
 pub struct TemplateFlag(Installable);

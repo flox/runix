@@ -1,3 +1,5 @@
+//! Arguments common for all mix commands
+
 use crate::command_line::ToArgs;
 
 /// These arguments do not depend on the nix subcommand issued

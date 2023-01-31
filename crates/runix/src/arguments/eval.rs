@@ -1,3 +1,5 @@
+//! Evaluation related arguments, see [EvaluationArgs]
+
 use derive_more::{Deref, From};
 use runix_derive::ToArgs;
 

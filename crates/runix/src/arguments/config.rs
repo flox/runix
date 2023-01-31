@@ -1,3 +1,5 @@
+//! Nix config flags and nix.conf generation, see [NixConfigArgs]
+
 use std::path::PathBuf;
 
 use derive_more::{Deref, From};
@@ -42,6 +44,7 @@ impl NixConfigArgs {
         .collect()
     }
 
+    /// write the config in the `nix.conf` file format
     pub fn to_config_string(&self) -> String {
         self.config_items()
             .into_iter()

@@ -1,3 +1,7 @@
+//! A work in progress FlakeRef implementation
+//!
+//! Parses flake reference Urls as defined by the Nix reference implementation.
+
 use std::borrow::Cow;
 use std::num::ParseIntError;
 use std::path::PathBuf;

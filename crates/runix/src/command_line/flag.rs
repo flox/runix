@@ -1,13 +1,21 @@
+//! Constructive command line flag abstraction
+//!
+//! This module defines the [Flag] trait adn [FlagType] type.
+//! Thes are used to _generate_ arguments (as oppoed to parsing them).
+
 use std::ffi::OsStr;
 use std::ops::Deref;
 
 use super::ToArgs;
 
-/// Setting Flag Container akin to https://cs.github.com/NixOS/nix/blob/499e99d099ec513478a2d3120b2af3a16d9ae49d/src/libutil/config.cc#L199
+/// Setting Flag Container akin to
+/// <https://cs.github.com/NixOS/nix/blob/499e99d099ec513478a2d3120b2af3a16d9ae49d/src/libutil/config.cc#L199>
 ///
 /// Usage:
 /// 1. Create a struct for a flag and implement [Flag] for it
-/// 2. Define `FLAG_TYPE` as either `FlagType::Bool` if no extra arguments are involved, or as `FlagType::Args` to point at an internal argument list or extra logic on `Self`
+/// 2. Define [Flag::FLAG_TYPE] as
+///     - either `FlagType::Bool` or `FlagType::Switch` if no extra arguments are involved,
+///     - or as a more specific [FlagType] depending on the layout of its arguments.
 pub trait Flag: Sized {
     const FLAG: &'static str;
     const FLAG_TYPE: FlagType<Self>;

@@ -1,7 +1,11 @@
+//! The [NixCommandLine] backend
+//!
+//! This module defines the types and traits that drive CLI invocations.
+//! Note also the blanket implementation of the [Run] traits below.
+
 use core::fmt;
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::io;
 use std::process::{ExitStatus, Output, Stdio};
 
 use async_trait::async_trait;
@@ -24,6 +28,10 @@ use crate::{NixBackend, Run, RunJson, RunTyped};
 
 pub mod flag;
 
+/// Defaults for all option groups
+///
+/// The implemetation of [Run] for [NixCommandLine] ensures
+/// that only defaults for the groups applicable to the command are issued.
 #[derive(Clone, Debug, Default)]
 pub struct DefaultArgs {
     pub environment: HashMap<String, String>,
@@ -34,6 +42,21 @@ pub struct DefaultArgs {
     pub extra_args: Vec<String>,
 }
 
+/// Errors occuring during the execution of the Nix Cli
+#[derive(Error, Debug)]
+pub enum NixCommandLineError {
+    #[error("Error running Nix: {0}")]
+    Run(std::io::Error),
+    /// unsused
+    #[deprecated]
+    #[error("Nix printed {0} bytes to stderr")]
+    Printed(u32),
+    /// unused
+    #[deprecated]
+    #[error("Bad exit: {0:?}")]
+    Exit(std::process::Output),
+}
+
 /// Nix Implementation based on the Nix Command Line
 #[derive(Clone, Debug, Default)]
 pub struct NixCommandLine {
@@ -41,24 +64,9 @@ pub struct NixCommandLine {
     pub defaults: DefaultArgs,
 }
 
-#[derive(Error, Debug)]
-pub enum NixCommandLineError {
-    #[error("Nix printed {0} bytes to stderr")]
-    Printed(u32),
-    #[error("Error running Nix: {0}")]
-    Run(std::io::Error),
-    #[error("Bad exit: {0:?}")]
-    Exit(std::process::Output),
-}
-
-#[derive(Error, Debug)]
-pub enum NixCommandLineCollectError {
-    #[error(transparent)]
-    CommandLine(#[from] NixCommandLineError),
-    #[error("Nix failed with: [exit code {0}]\n{1}")]
-    NixError(i32, String),
-}
-
+/// An extensioon trait for [std::process::Command]
+///
+/// Adds a `POSIX` style logging function.
 pub trait CommandExt {
     fn log(&self, _level: log::Level) {}
 }
@@ -105,11 +113,25 @@ impl CommandExt for std::process::Command {
     }
 }
 
+/// Run commands in different modes.
+///
+/// Internal interface usied in the blanket impl of [Run]/[RunJson]
+/// Mainly used for influencing the destination of `Stdio`
+/// See [Collect] and [Passthru] as examples.
 #[async_trait]
 trait CommandMode {
     type Output;
     type Error;
     async fn run(command: &mut Command) -> Result<Self::Output, Self::Error>;
+}
+
+/// Errors occuring during command exection bin [Collect] Mode
+#[derive(Error, Debug)]
+pub enum NixCommandLineCollectError {
+    #[error(transparent)]
+    CommandLine(#[from] NixCommandLineError),
+    #[error("Nix failed with: [exit code {0}]\n{1}")]
+    NixError(i32, String),
 }
 
 /// Implementation of a command execution that collects stdout of a process
@@ -190,7 +212,7 @@ impl CommandMode for Passthru {
 }
 
 impl NixCommandLine {
-    // Small wrapping helper function to make Run implementations simpler
+    /// Small wrapping helper function to make Run implementations simpler
     async fn run_command<M: CommandMode, A, B: NixCliCommand<Own = A>>(
         &self,
         command: &B,
@@ -233,6 +255,10 @@ impl NixCommandLine {
     }
 }
 
+/// Create a list of arguments from `&Self`
+///
+/// Groups, i.e. Structs that only contain fields which immplement [ToArgs]
+/// can derive this trait using [runix_derive::ToArgs].
 pub trait ToArgs {
     fn to_args(&self) -> Vec<String>;
 }
@@ -249,8 +275,25 @@ impl<T: ToArgs> ToArgs for Vec<T> {
     }
 }
 
+/// A group of options that may or may not applicable for a command
+///
+/// If [Some], provides a function that extracts a group `U`
+/// from a refernece to the command.
+///
+/// If [None], no option of this group is generated on the command line.
+/// Any defaults set on the [NixCommandLine] instance for this group
+///  will likewise be ignored.
 pub type Group<T, U> = Option<fn(&T) -> U>;
 
+/// Marker trait for abstract commands run on the nix CLI
+///
+/// A new command can be implemented by implementing this trait,
+/// and supplying the applicable option groups.
+///
+/// Used to automatically implement [Run<NixCommandLine>] for implementers
+///
+/// See the implementations in [super::command] for examples of practical
+/// implementations.
 pub trait NixCliCommand: fmt::Debug + Sized {
     type Own: ToArgs;
 
@@ -296,26 +339,26 @@ pub trait JsonCommand {}
 /// eg for [Develop]:
 ///
 /// ```
-/// use async_trait::async_trait;
-/// use runix::arguments::NixArgs;
-/// use runix::command::Develop;
-/// use runix::{NixBackend, Run, RunTyped};
+/// # use async_trait::async_trait;
+/// # use runix::arguments::NixArgs;
+/// # use runix::command::Develop;
+/// # use runix::{NixBackend, Run, RunTyped};
 ///
-/// struct NixCommandLine;
-/// impl NixBackend for NixCommandLine {}
+/// # struct NixCommandLine;
+/// # impl NixBackend for NixCommandLine {}
 ///
-/// #[async_trait]
-/// impl Run<NixCommandLine> for Develop {
-///     type Error = std::io::Error;
+/// # #[async_trait]
+/// # impl Run<NixCommandLine> for Develop {
+/// #     type Error = std::io::Error;
 ///
-///     async fn run(
-///         &self,
-///         backend: &NixCommandLine,
-///         nix_args: &NixArgs,
-///     ) -> Result<(), Self::Error> {
-///         todo!()
-///     }
-/// }
+/// #     async fn run(
+/// #         &self,
+/// #         backend: &NixCommandLine,
+/// #         nix_args: &NixArgs,
+/// #     ) -> Result<(), Self::Error> {
+/// #         todo!()
+/// #     }
+/// # }
 ///
 /// #[async_trait]
 /// impl RunTyped<NixCommandLine> for Develop {
@@ -418,22 +461,5 @@ where
             Ok(v) => Ok(serde_json::from_value(v).unwrap()),
             Err(e) => Err(e),
         }
-    }
-}
-
-impl NixBackend for u32 {}
-
-#[async_trait]
-impl<C> Run<u32> for C
-where
-    C: NixCliCommand + Send + Sync,
-{
-    type Error = io::Error;
-
-    // type Backend = NixCommandLine;
-
-    async fn run(&self, _backend: &u32, _nix_args: &NixArgs) -> Result<(), io::Error> {
-        panic!("42")
-        // backend.run_in_nix(args)
     }
 }
