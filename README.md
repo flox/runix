@@ -29,10 +29,10 @@ to your `Cargo.toml`.
 runix is a library that allows you to **run** **nix** using a typed
 interface.
 
-runix converts command structures into an invocation of a [NixBackend]
+runix converts command structures into an invocation of a `NixBackend`
 implementation.
-The backend currently in development is the [command_line::NixCommandLine]
-backend, which uses [tokio::process::Command] to `exec` the nix CLI.
+The backend currently in development is the `command_line::NixCommandLine`
+backend, which uses `tokio::process::Command` to `exec` the nix CLI.
 
 While this is the reference implmentation, other backends such as an
 FFI based implementation or Mocking shims for testing are possible.
@@ -49,7 +49,8 @@ FFI based implementation or Mocking shims for testing are possible.
 
 The easiest way to get familiar with the interface is by way of an example.
 
-Again, mind that you'll need nix on your `PATH` to use runix.
+Again, mind that you'll need nix on your `PATH` to use runix
+and have enabled `experimental-features='nix-command flakes'`.
 
 ```rust
 // (1) initialize a backend
@@ -90,7 +91,7 @@ tokio::process::Command::new("nix")
 The main benefit of runix however is that it abstracts away the plain list
 of arguments and guides you to correct invocations of the cli.
 
-**Interested?** Check out the rustdoc for more detailed explanations.
+**Interested?** Check out the [rustdoc](https://docs.rs/runix/) for more detailed explanations.
 
 
 ## Future Roadmap
