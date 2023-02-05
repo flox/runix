@@ -159,7 +159,7 @@ impl ToFlakeRef {
         let flake_ref = match url.scheme() {
             // https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/path.cc#L11
             "path" | "file" => ToFlakeRef::Path {
-                path: url.to_file_path().map_err(UrlError::ExtractPath)?,
+                path: PathBuf::from(url.path()),
                 rev_count: url
                     .query_pairs()
                     .find(|(name, _)| name == "revCount")
@@ -181,12 +181,11 @@ impl FromStr for ToFlakeRef {
     type Err = FlakeRefError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let url = Url::parse(s)
-            .or_else(|e| {
-                info!("could not parse '{s}' as qualified url, trying to parse as `path:` ({e})",);
-                Url::parse(&format!("path:{}", s))
-            })
-            .map_err(|e| FlakeRefError::ParseUrl(s.to_string(), e))?;
+        let url = Url::parse(s).or_else(|e| {
+            info!("could not parse '{s}' as qualified url, trying to parse as `path:` ({e})",);
+            Url::parse(&format!("path:{}", s))
+                .map_err(|e| FlakeRefError::ParseUrl(s.to_string(), e))
+        })?;
 
         ToFlakeRef::from_url(&url)
     }
@@ -373,6 +372,26 @@ mod tests {
     use url::Url;
 
     use super::*;
+
+    #[test]
+    fn parses_dot_flakeref() {
+        ToFlakeRef::from_str(".").unwrap();
+        ToFlakeRef::from_str("path:.").unwrap();
+    }
+
+    #[test]
+    fn parses_path_flakeref() {
+        dbg!(ToFlakeRef::from_str("/").unwrap());
+
+        assert_eq!(
+            ToFlakeRef::from_str("/some/where").unwrap(),
+            ToFlakeRef::from_str("path:///some/where").unwrap()
+        );
+        assert_eq!(
+            ToFlakeRef::from_str("/some/where").unwrap(),
+            ToFlakeRef::from_str("path:/some/where").unwrap()
+        );
+    }
 
     #[test]
     fn parses_github_flakeref() {
