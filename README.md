@@ -1,8 +1,8 @@
 # runix
 
-A typesafe interface to the [nix](https://github.com/nixos/nix)
+A typesafe interface to the [nix](https://github.com/nixos/nix) CLI.
 
-*by flox*
+*by [flox](https://github.com/flox)*
 
 ------
 
@@ -22,6 +22,7 @@ runix = "{{current_version}}" # check the latest version before adding
 
 to your `Cargo.toml`.
 
+## Usage
 
 *runix* requires an existing [nix](https://github.com/nixos/nix) installation.
 
@@ -89,7 +90,7 @@ tokio::process::Command::new("nix")
 The main benefit of runix however is that it abstracts away the plain list
 of arguments and guides you to correct invocations of the cli.
 
-**Interested?**: checkout the rustdoc for more detailed explanations.
+**Interested?** Check out the rustdoc for more detailed explanations.
 
 
 ## Future Roadmap
@@ -99,4 +100,6 @@ a comprehensive set of flags.
 Depending on the state of abstractions in Nix,
 we plan to approach native bindings to Nix commands and concepts.
 
-License: LGPL-2.1
+## License
+
+Runix is licensed under LGPL-2.1
