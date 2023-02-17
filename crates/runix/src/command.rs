@@ -12,6 +12,7 @@ use crate::arguments::{BundleArgs, DevelopArgs, EvalArgs, InstallableArg, Instal
 use crate::command_line::flag::{Flag, FlagType};
 use crate::command_line::{Group, JsonCommand, NixCliCommand, TypedCommand};
 use crate::installable::Installable;
+use crate::flake_ref::ToFlakeRef;
 
 /// `nix build` Command
 #[derive(Debug, Default, Clone)]
@@ -74,6 +75,61 @@ impl NixCliCommand for FlakeInit {
     const INSTALLABLES: Group<Self, InstallablesArgs> = Some(|d| d.installables.clone());
     const OWN_ARGS: Group<Self, Option<TemplateFlag>> = Some(|d| d.template.clone());
     const SUBCOMMAND: &'static [&'static str] = &["flake", "init"];
+}
+
+/// `nix flake metadata` Command
+#[derive(Debug, Default, Clone)]
+pub struct FlakeMetadata {
+    pub flake: FlakeArgs,
+    pub eval: EvaluationArgs,
+    pub installable: InstallableArg,
+}
+
+impl NixCliCommand for FlakeMetadata {
+    type Own = ();
+    const FLAKE_ARGS: Group<Self, FlakeArgs> = Some(|d| d.flake.clone());
+    const EVAL_ARGS: Group<Self, EvaluationArgs> = Some(|d| d.eval.clone());
+    const INSTALLABLE: Group<Self, InstallableArg> = Some(|d| d.installable.clone());
+    const SUBCOMMAND: &'static [&'static str] = &["flake", "metadata"];
+}
+
+impl JsonCommand for FlakeMetadata {}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct LockEntry {
+    #[serde(default)]
+    pub inputs: HashMap<String, String>,
+    #[serde(default)]
+    pub locked: Option<ToFlakeRef>,
+    #[serde(default)]
+    pub original: Option<ToFlakeRef>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct Locks {
+    pub root: String,
+    pub version: u16,
+    pub nodes: HashMap<String, LockEntry>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct FlakeMetadataOut {
+    #[serde(rename = "lastModified")]
+    pub last_modified: u64,
+    pub locked: ToFlakeRef,
+    pub locks: Locks,
+    pub original: ToFlakeRef,
+    #[serde(rename = "originalUrl")]
+    pub original_url: String,
+    pub path: String,
+    pub resolved: ToFlakeRef,
+    #[serde(rename = "resolvedUrl")]
+    pub resolved_url: String,
+    pub url: String,
+}
+
+impl TypedCommand for FlakeMetadata {
+    type Output = FlakeMetadataOut;
 }
 
 /// `nix develop` Command

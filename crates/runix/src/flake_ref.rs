@@ -72,13 +72,13 @@ pub enum ToFlakeRef {
         all_refs: Option<bool>,
 
         #[serde(rename = "ref")]
-        commit_ref: CommitRef,
+        commit_ref: Option<CommitRef>,
 
         #[serde(rename = "revCount")]
         rev_count: Option<RevCount>,
 
         #[serde(flatten)]
-        pinned: Pinned,
+        pinned: Option<Pinned>,
     },
     /// https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/tarball.cc#L206
     Tarball {
