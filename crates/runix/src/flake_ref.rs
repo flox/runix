@@ -148,8 +148,8 @@ impl ToFlakeRef {
                 unpack: _,
                 nar_hash: _,
             } => todo!(),
-            ToFlakeRef::Indirect(IndirectFlake { id: _ }) => {
-                Url::parse("flake:{id}").expect("Failed to create indirect reference")
+            ToFlakeRef::Indirect(IndirectFlake { id }) => {
+                Url::parse(&format!("flake:{id}")).expect("Failed to create indirect reference")
             },
         };
         Ok(url)
@@ -445,7 +445,7 @@ mod tests {
         })
     }
 
-    /// Ensure that a path flake ref serializes without inforation loss
+    /// Ensure that a path flake ref serializes without information loss
     #[test]
     fn path_to_from_url() {
         let flake_ref = ToFlakeRef::Path {
@@ -479,7 +479,7 @@ mod tests {
         )
     }
 
-    /// Ensure that a github flake ref serializes without inforation loss
+    /// Ensure that a github flake ref serializes without information loss
     #[test]
     fn github_to_from_url() {
         let flake_ref = ToFlakeRef::GitHub(GitService {
@@ -488,6 +488,19 @@ mod tests {
             host: None,
             commit_ref: Some("unstable".into()),
             pinned: None,
+        });
+
+        let parsed = ToFlakeRef::from_url(&flake_ref.to_url().expect("should serialize to url"))
+            .expect("should deserialize from url");
+
+        assert_eq!(flake_ref, parsed)
+    }
+
+    /// Ensure that an indirect flake ref serializes without information loss
+    #[test]
+    fn indirect_to_from_url() {
+        let flake_ref = ToFlakeRef::Indirect(IndirectFlake {
+            id: "nixpkgs-flox".into(),
         });
 
         let parsed = ToFlakeRef::from_url(&flake_ref.to_url().expect("should serialize to url"))
