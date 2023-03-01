@@ -149,7 +149,7 @@ impl ToFlakeRef {
                 nar_hash: _,
             } => todo!(),
             ToFlakeRef::Indirect(IndirectFlake { id }) => {
-                Url::parse(&format!("flake:{0}", id)).expect("Failed to create indirect reference")
+                Url::parse(&format!("flake:{id}")).expect("Failed to create indirect reference")
             },
         };
         Ok(url)
