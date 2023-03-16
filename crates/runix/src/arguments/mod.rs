@@ -64,6 +64,31 @@ impl ToArgs for InstallablesArgs {
     }
 }
 
+/// `nix --out-path <path>` option
+#[derive(Clone, From, Deref, Debug)]
+#[from(forward)]
+pub struct OutLink(PathBuf);
+impl Flag for OutLink {
+    const FLAG: &'static str = "--out-link";
+    const FLAG_TYPE: FlagType<Self> = FlagType::os_str_arg();
+}
+
+/// `nix build --no-link` flag
+#[derive(Clone, From, Deref, Debug)]
+#[from(forward)]
+pub struct NoLink(bool);
+impl Flag for NoLink {
+    const FLAG: &'static str = "--no-link";
+    const FLAG_TYPE: FlagType<Self> = FlagType::switch(false);
+}
+
+/// `nix build` options
+#[derive(Debug, Default, Clone, ToArgs)]
+pub struct BuildArgs {
+    pub out_link: Option<OutLink>,
+    pub no_link: Option<Bundler>,
+}
+
 /// `nix develop` options
 #[derive(Debug, Default, Clone, ToArgs)]
 pub struct DevelopArgs {}
