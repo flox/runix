@@ -8,7 +8,14 @@ use serde::Deserialize;
 use crate::arguments::eval::EvaluationArgs;
 use crate::arguments::flake::FlakeArgs;
 use crate::arguments::source::SourceArgs;
-use crate::arguments::{BundleArgs, DevelopArgs, EvalArgs, InstallableArg, InstallablesArgs};
+use crate::arguments::{
+    BuildArgs,
+    BundleArgs,
+    DevelopArgs,
+    EvalArgs,
+    InstallableArg,
+    InstallablesArgs,
+};
 use crate::command_line::flag::{Flag, FlagType};
 use crate::command_line::{Group, JsonCommand, NixCliCommand, TypedCommand};
 use crate::installable::Installable;
@@ -20,10 +27,11 @@ pub struct Build {
     pub eval: EvaluationArgs,
     pub source: SourceArgs,
     pub installables: InstallablesArgs,
+    pub build: BuildArgs,
 }
 
 impl NixCliCommand for Build {
-    type Own = ();
+    type Own = BuildArgs;
 
     const EVAL_ARGS: Group<Self, EvaluationArgs> = Some(|d| d.eval.clone());
     const FLAKE_ARGS: Group<Self, FlakeArgs> = Some(|d| d.flake.clone());
