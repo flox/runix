@@ -22,4 +22,4 @@ shell-escape = "0.1.5"
 tokio = { version = "1.21", features = ["full"] }
 tokio-stream = { version = "0.1.11", features = ["tokio-util", "io-util"] }
 thiserror = "1.0"
-url = "2.3"
+url = { version = "2.3",  features = [ "serde" ] }

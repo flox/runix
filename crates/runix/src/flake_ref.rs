@@ -3,9 +3,10 @@
 //! Parses flake reference Urls as defined by the Nix reference implementation.
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::num::ParseIntError;
 use std::path::PathBuf;
-use std::str::FromStr;
+use std::str::{FromStr, ParseBoolError};
 
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -35,6 +36,13 @@ pub enum FlakeRefError {
     ParseLastModified(ParseIntError),
     #[error("Could not parse `revCount` field as Integer")]
     ParseRevCount(ParseIntError),
+
+    #[error("Could not parse `shallow` field: {0}")]
+    ParseShallow(ParseBoolError),
+    #[error("Could not parse `submodules` field: {0}")]
+    ParseSumbodules(ParseBoolError),
+    #[error("Could not parse `allRefs` field: {0}")]
+    ParseAllRefs(ParseBoolError),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -65,20 +73,20 @@ pub enum ToFlakeRef {
     },
     /// https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/git.cc#L287
     Git {
-        url: GitUrl,
+        url: Url,
         shallow: Option<bool>,
         submodules: Option<bool>,
         #[serde(rename = "allRefs")]
         all_refs: Option<bool>,
 
         #[serde(rename = "ref")]
-        commit_ref: CommitRef,
+        commit_ref: Option<CommitRef>,
 
         #[serde(rename = "revCount")]
         rev_count: Option<RevCount>,
 
         #[serde(flatten)]
-        pinned: Pinned,
+        pinned: Option<Pinned>,
     },
     /// https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/tarball.cc#L206
     Tarball {
@@ -171,6 +179,49 @@ impl ToFlakeRef {
             "flake" => ToFlakeRef::Indirect(IndirectFlake {
                 id: url.path().to_string(),
             }),
+            git_scheme if git_scheme.starts_with("git+") => {
+                let pairs: HashMap<_, _> = url.query_pairs().collect();
+                let shallow = pairs
+                    .get("shallow")
+                    .map(|shallow| shallow.parse())
+                    .transpose()
+                    .map_err(FlakeRefError::ParseShallow)?;
+                let submodules = pairs
+                    .get("submodules")
+                    .map(|submodules| submodules.parse())
+                    .transpose()
+                    .map_err(FlakeRefError::ParseSumbodules)?;
+                let all_refs = pairs
+                    .get("all_refs")
+                    .map(|all_refs| all_refs.parse())
+                    .transpose()
+                    .map_err(FlakeRefError::ParseAllRefs)?;
+
+                let commit_ref = pairs.get("ref").map(|commit_ref| commit_ref.to_string());
+                let rev_count = pairs
+                    .get("revCount")
+                    .map(|rev_count| rev_count.parse())
+                    .transpose()
+                    .map_err(FlakeRefError::ParseRevCount)?;
+                let pinned = Pinned::from_query(url)?;
+
+                let wrapped_url = {
+                    let mut url = url.clone();
+                    url.set_query(None);
+                    url.set_fragment(None);
+                    Url::parse(url.to_string().trim_start_matches("git+")).unwrap()
+                };
+
+                ToFlakeRef::Git {
+                    url: wrapped_url,
+                    shallow,
+                    submodules,
+                    all_refs,
+                    commit_ref,
+                    rev_count,
+                    pinned,
+                }
+            },
             _ => todo!(),
         };
         Ok(flake_ref)
@@ -390,6 +441,27 @@ mod tests {
         assert_eq!(
             ToFlakeRef::from_str("/some/where").unwrap(),
             ToFlakeRef::from_str("path:/some/where").unwrap()
+        );
+    }
+
+    #[test]
+    fn parses_git_path_flakeref() {
+        let expected = ToFlakeRef::Git {
+            url: Url::from_directory_path("/somewhere/on/the/drive").unwrap(),
+            shallow: Some(false),
+            submodules: Some(false),
+            all_refs: None,
+            commit_ref: Some("feature/xyz".to_owned()),
+            rev_count: None,
+            pinned: None,
+        };
+
+        assert_eq!(
+            &ToFlakeRef::from_str(
+                "git+file:///somewhere/on/the/drive/?shallow=false&submodules=false&ref=feature/xyz"
+            )
+            .unwrap(),
+            &expected
         );
     }
 
