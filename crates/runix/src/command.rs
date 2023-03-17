@@ -124,6 +124,10 @@ impl NixCliCommand for Eval {
     const SUBCOMMAND: &'static [&'static str] = &["eval"];
 }
 impl JsonCommand for Eval {}
+pub type EvalOut = String;
+impl TypedCommand for Eval {
+    type Output = EvalOut;
+}
 
 /// `nix run` Command
 #[derive(Debug, Default, Clone)]
