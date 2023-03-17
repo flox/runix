@@ -31,6 +31,7 @@ impl Registry {
         let entry = RegistryEntry {
             from: FromFlakeRef::Indirect(IndirectFlake {
                 id: name.to_string(),
+                args: Default::default(),
             }),
             to,
             exact: None,

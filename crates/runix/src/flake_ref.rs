@@ -2,9 +2,9 @@
 //!
 //! Parses flake reference Urls as defined by the Nix reference implementation.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::num::ParseIntError;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::{FromStr, ParseBoolError};
 
 use log::info;
@@ -47,6 +47,7 @@ pub enum FlakeRefError {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct IndirectFlake {
     pub id: FlakeId,
+    pub args: BTreeMap<String, String>,
 }
 
 /// Flake ref definitions
@@ -86,6 +87,8 @@ pub enum ToFlakeRef {
 
         #[serde(flatten)]
         pinned: Option<Pinned>,
+
+        dir: Option<PathBuf>,
     },
     /// https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/tarball.cc#L206
     Tarball {
@@ -149,14 +152,25 @@ impl ToFlakeRef {
                 commit_ref: _,
                 rev_count: _,
                 pinned: _,
+                dir: _,
             } => todo!(),
             ToFlakeRef::Tarball {
                 url: _,
                 unpack: _,
                 nar_hash: _,
             } => todo!(),
-            ToFlakeRef::Indirect(IndirectFlake { id }) => {
-                Url::parse(&format!("flake:{id}")).expect("Failed to create indirect reference")
+            ToFlakeRef::Indirect(IndirectFlake { id, args }) => {
+                let mut url = Url::parse(&format!("flake:{id}"))
+                    .expect("Failed to create indirect reference");
+
+                // append query
+                {
+                    let mut query = url.query_pairs_mut();
+                    query.extend_pairs(args.iter());
+                    query.finish();
+                }
+
+                url
             },
         };
         Ok(url)
@@ -177,8 +191,12 @@ impl ToFlakeRef {
             "github" => ToFlakeRef::GitHub(GitService::from_url(url)?),
             "flake" => ToFlakeRef::Indirect(IndirectFlake {
                 id: url.path().to_string(),
+                args: url
+                    .query_pairs()
+                    .map(|(k, v)| (k.into_owned(), v.into_owned()))
+                    .collect(),
             }),
-            git_scheme if git_scheme.starts_with("git+") => {
+            "git+http" | "git+https" | "git+ssh" | "git+file" => {
                 let pairs: HashMap<_, _> = url.query_pairs().collect();
                 let shallow = pairs
                     .get("shallow")
@@ -203,6 +221,9 @@ impl ToFlakeRef {
                     .transpose()
                     .map_err(FlakeRefError::ParseRevCount)?;
                 let pinned = Pinned::from_query(url)?;
+                let dir = pairs
+                    .get("dir")
+                    .map(|dir| Path::new(dir.as_ref()).to_path_buf());
 
                 let wrapped_url = {
                     let mut url = url.clone();
@@ -219,6 +240,7 @@ impl ToFlakeRef {
                     commit_ref,
                     rev_count,
                     pinned,
+                    dir,
                 }
             },
             _ => todo!(),
@@ -353,6 +375,8 @@ pub struct GitService {
     commit_ref: Option<CommitRef>,
     #[serde(flatten)]
     pinned: Option<Pinned>,
+
+    dir: Option<PathBuf>,
 }
 
 impl GitService {
@@ -442,6 +466,7 @@ mod tests {
     fn parses_registry_flakeref() {
         let expected = ToFlakeRef::Indirect(IndirectFlake {
             id: "nixpkgs".to_string(),
+            args: BTreeMap::default(),
         });
 
         assert_eq!(&ToFlakeRef::from_str("flake:nixpkgs").unwrap(), &expected);
@@ -458,11 +483,12 @@ mod tests {
             commit_ref: Some("feature/xyz".to_owned()),
             rev_count: None,
             pinned: None,
+            dir: Some("abc".into()),
         };
 
         assert_eq!(
             &ToFlakeRef::from_str(
-                "git+file:///somewhere/on/the/drive/?shallow=false&submodules=false&ref=feature/xyz"
+                "git+file:///somewhere/on/the/drive/?shallow=false&submodules=false&ref=feature/xyz&dir=abc"
             )
             .unwrap(),
             &expected
@@ -490,7 +516,8 @@ mod tests {
                 repo: "nixpkgs".into(),
                 host: None,
                 commit_ref: Some("unstable".into()),
-                pinned: None
+                pinned: None,
+                dir: None,
             })
         )
     }
@@ -564,6 +591,7 @@ mod tests {
             host: None,
             commit_ref: Some("unstable".into()),
             pinned: None,
+            dir: None,
         });
 
         let parsed = ToFlakeRef::from_url(&flake_ref.to_url().expect("should serialize to url"))
@@ -577,6 +605,7 @@ mod tests {
     fn indirect_to_from_url() {
         let flake_ref = ToFlakeRef::Indirect(IndirectFlake {
             id: "nixpkgs-flox".into(),
+            args: BTreeMap::default(),
         });
 
         let parsed = ToFlakeRef::from_url(&flake_ref.to_url().expect("should serialize to url"))
