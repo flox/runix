@@ -233,9 +233,15 @@ impl FromStr for ToFlakeRef {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url = Url::parse(s).or_else(|e| {
-            info!("could not parse '{s}' as qualified url, trying to parse as `path:` ({e})",);
-            Url::parse(&format!("path:{}", s))
-                .map_err(|e| FlakeRefError::ParseUrl(s.to_string(), e))
+            if s.starts_with('.') || s.starts_with('/') {
+                info!("could not parse '{s}' as qualified url, trying to parse as `path:` ({e})",);
+                Url::parse(&format!("path://{s}"))
+                    .map_err(|e| FlakeRefError::ParseUrl(s.to_string(), e))
+            } else {
+                info!("could not parse '{s}' as qualified url, trying to parse as `flake:` ({e})",);
+                Url::parse(&format!("flake:{s}"))
+                    .map_err(|e| FlakeRefError::ParseUrl(s.to_string(), e))
+            }
         })?;
 
         ToFlakeRef::from_url(&url)
@@ -442,6 +448,16 @@ mod tests {
             ToFlakeRef::from_str("/some/where").unwrap(),
             ToFlakeRef::from_str("path:/some/where").unwrap()
         );
+    }
+
+    #[test]
+    fn parses_registry_flakeref() {
+        let expected = ToFlakeRef::Indirect(IndirectFlake {
+            id: "nixpkgs".to_string(),
+        });
+
+        assert_eq!(&ToFlakeRef::from_str("flake:nixpkgs").unwrap(), &expected);
+        assert_eq!(&ToFlakeRef::from_str("nixpkgs").unwrap(), &expected);
     }
 
     #[test]
