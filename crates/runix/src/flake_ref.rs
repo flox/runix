@@ -2,7 +2,6 @@
 //!
 //! Parses flake reference Urls as defined by the Nix reference implementation.
 
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::num::ParseIntError;
 use std::path::PathBuf;
@@ -311,40 +310,29 @@ impl Pinned {
     }
 
     fn from_query(url: &Url) -> Result<Option<Self>, FlakeRefError> {
-        let nar_hash = url
-            .query_pairs()
-            .find(|(name, _)| name == "narHash")
-            .map(|(_, value)| value);
-        let last_modified = url
-            .query_pairs()
-            .find(|(name, _)| name == "lastModified")
-            .map(|(_, value)| value);
-        let rev = url
-            .query_pairs()
-            .find(|(name, _)| name == "rev")
-            .map(|(_, value)| value);
+        let query: HashMap<_, _> = url.query_pairs().collect();
 
-        fn parse_last_modified(modified: Option<Cow<str>>) -> u64 {
-            modified
-                .map(|s| s.parse().unwrap_or_default())
-                .unwrap_or_default()
-        }
+        let nar_hash = query.get("narHash");
+        let rev = query.get("rev");
+        let last_modified = query
+            .get("lastModified")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or_default();
 
-        let pinned = match (nar_hash, rev, last_modified) {
-            (None, None, _) => None,
-            (None, Some(rev), modified) => Some(Self::Rev {
-                commit_rev: rev.into_owned(),
-                last_modified: parse_last_modified(modified),
+        let pinned = match (nar_hash, rev) {
+            (None, None) => None,
+            (None, Some(rev)) => Some(Self::Rev {
+                commit_rev: rev.to_string(),
+                last_modified,
             }),
-            (Some(nar), None, modified) => Some(Self::Nar {
-                nar_hash: nar.into_owned(),
-                last_modified: parse_last_modified(modified),
+            (Some(nar), None) => Some(Self::Nar {
+                nar_hash: nar.to_string(),
+                last_modified,
             }),
-            (Some(nar), Some(rev), modified) => Some(Self::NarAndRev {
-                nar_hash: nar.into_owned(),
-                last_modified: parse_last_modified(modified),
-
-                commit_rev: rev.into_owned(),
+            (Some(nar), Some(rev)) => Some(Self::NarAndRev {
+                nar_hash: nar.to_string(),
+                last_modified,
+                commit_rev: rev.to_string(),
             }),
         };
 
