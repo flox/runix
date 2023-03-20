@@ -46,7 +46,7 @@ impl ToArgs for NixArgs {
 /// ([approximately](https://github.com/NixOS/nix/search?q=InstallablesCommand)
 #[derive(From, Clone, Default, Debug)]
 #[from(forward)]
-pub struct InstallableArg(Option<Installable>);
+pub struct InstallableArg(pub Option<Installable>);
 impl ToArgs for InstallableArg {
     fn to_args(&self) -> Vec<String> {
         self.0.iter().map(|i| i.to_nix()).collect()
