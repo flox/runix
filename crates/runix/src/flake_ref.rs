@@ -48,7 +48,6 @@ pub struct IndirectFlake {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 #[serde(tag = "type")]
-
 pub enum ToFlakeRef {
     GitHub(GitService),
     GitLab(GitService),
@@ -117,19 +116,20 @@ impl ToFlakeRef {
                 // set the path part
                 url.set_path(&path.to_string_lossy());
 
-                // get the query handle
-                let mut query = url.query_pairs_mut();
+                // set the query
+                {
+                    // get the query handle
+                    let mut query = url.query_pairs_mut();
 
-                if let Some(count) = rev_count {
-                    query.append_pair("revCount", &count.to_string());
+                    if let Some(count) = rev_count {
+                        query.append_pair("revCount", &count.to_string());
+                    }
+
+                    // add common `pin` attrbutes to query
+                    for pin in pinned {
+                        pin.add_to_query(&mut query);
+                    }
                 }
-
-                // add common `pin` attrbutes to query
-                for pin in pinned {
-                    pin.add_to_query(&mut query);
-                }
-
-                let url = query.finish().to_owned();
 
                 debug_assert_eq!(url.scheme(), "path");
                 url

@@ -204,6 +204,7 @@ pub mod arguments;
 pub mod command;
 pub mod command_line;
 pub mod flake_ref;
+pub mod flake_ref2;
 pub mod installable;
 pub mod registry;
 
