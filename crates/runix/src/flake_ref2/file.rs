@@ -79,8 +79,19 @@ impl ApplicationProtocol for File {
         "file".into()
     }
 
-    fn required(_url: &Url) -> bool {
-        false
+    fn required(url: &Url) -> bool {
+        let is_tarball_url = Path::new(url.path())
+            .file_name()
+            .map(|name| {
+                [
+                    ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst",
+                ]
+                .iter()
+                .any(|ext| name.to_string_lossy().ends_with(ext))
+            })
+            .unwrap_or_default();
+
+        is_tarball_url
     }
 }
 
@@ -93,12 +104,13 @@ impl ApplicationProtocol for Tarball {
 
     fn required(url: &Url) -> bool {
         let is_tarball_url = Path::new(url.path())
-            .extension()
-            .map(|ext| {
+            .file_name()
+            .map(|name| {
                 [
                     ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst",
                 ]
-                .contains(&&*ext.to_string_lossy())
+                .iter()
+                .any(|ext| name.to_string_lossy().ends_with(ext))
             })
             .unwrap_or_default();
 

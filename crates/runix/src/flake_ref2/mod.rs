@@ -188,7 +188,15 @@ mod tests {
             FlakeRef::FileFile(_)
         ));
         assert!(matches!(
+            dbg!(FlakeRef::from_str("file:///somewhere/there")).unwrap(),
+            FlakeRef::FileFile(_)
+        ));
+        assert!(matches!(
             dbg!(FlakeRef::from_str("file+http://my.de/path/to/file")).unwrap(),
+            FlakeRef::FileHTTP(_)
+        ));
+        assert!(matches!(
+            dbg!(FlakeRef::from_str("http://my.de/path/to/file")).unwrap(),
             FlakeRef::FileHTTP(_)
         ));
         assert!(matches!(
@@ -196,7 +204,15 @@ mod tests {
             FlakeRef::FileHTTPS(_)
         ));
         assert!(matches!(
+            dbg!(FlakeRef::from_str("https://my.de/path/to/file")).unwrap(),
+            FlakeRef::FileHTTPS(_)
+        ));
+        assert!(matches!(
             dbg!(FlakeRef::from_str("tarball+file:///somewhere/there")).unwrap(),
+            FlakeRef::TarballFile(_)
+        ));
+        assert!(matches!(
+            dbg!(FlakeRef::from_str("file:///somewhere/there.tar.gz")).unwrap(),
             FlakeRef::TarballFile(_)
         ));
         assert!(matches!(
@@ -204,7 +220,15 @@ mod tests {
             FlakeRef::TarballHTTP(_)
         ));
         assert!(matches!(
+            dbg!(FlakeRef::from_str("http://my.de/path/to/file.tar.gz")).unwrap(),
+            FlakeRef::TarballHTTP(_)
+        ));
+        assert!(matches!(
             dbg!(FlakeRef::from_str("tarball+https://my.de/path/to/file")).unwrap(),
+            FlakeRef::TarballHTTPS(_)
+        ));
+        assert!(matches!(
+            dbg!(FlakeRef::from_str("https://my.de/path/to/file.tar.gz")).unwrap(),
             FlakeRef::TarballHTTPS(_)
         ));
         assert!(matches!(
