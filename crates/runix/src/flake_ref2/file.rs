@@ -18,6 +18,7 @@ pub type FileUrl<Protocol> = WrappedUrl<Protocol>;
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/tarball.cc#L287>
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
 #[serde(tag = "file")]
+#[serde(deny_unknown_fields)]
 pub struct FileRef<Protocol: FileProtocol, A: ApplicationProtocol = File> {
     url: WrappedUrl<Protocol>,
 
@@ -29,6 +30,7 @@ pub struct FileRef<Protocol: FileProtocol, A: ApplicationProtocol = File> {
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct FileAttributes {
     #[serde(flatten)]
     nar_hash: Option<NarHash>,
@@ -72,6 +74,21 @@ impl<T: ApplicationProtocol> Display for Application<T> {
     }
 }
 
+fn is_tarball_url(url: &Url) -> bool {
+    let is_tarball_url = Path::new(url.path())
+        .file_name()
+        .map(|name| {
+            [
+                ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst",
+            ]
+            .iter()
+            .any(|ext| name.to_string_lossy().ends_with(ext))
+        })
+        .unwrap_or_default();
+
+    is_tarball_url
+}
+
 #[derive(Display, Default, Debug)]
 pub struct File;
 impl ApplicationProtocol for File {
@@ -80,18 +97,7 @@ impl ApplicationProtocol for File {
     }
 
     fn required(url: &Url) -> bool {
-        let is_tarball_url = Path::new(url.path())
-            .file_name()
-            .map(|name| {
-                [
-                    ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst",
-                ]
-                .iter()
-                .any(|ext| name.to_string_lossy().ends_with(ext))
-            })
-            .unwrap_or_default();
-
-        is_tarball_url
+        is_tarball_url(url)
     }
 }
 
@@ -103,18 +109,7 @@ impl ApplicationProtocol for Tarball {
     }
 
     fn required(url: &Url) -> bool {
-        let is_tarball_url = Path::new(url.path())
-            .file_name()
-            .map(|name| {
-                [
-                    ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst",
-                ]
-                .iter()
-                .any(|ext| name.to_string_lossy().ends_with(ext))
-            })
-            .unwrap_or_default();
-
-        !is_tarball_url
+        !is_tarball_url(url)
     }
 }
 
@@ -126,7 +121,7 @@ impl FileProtocol for protocol::HTTPS {}
 impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource for FileRef<Protocol, Type> {
     fn scheme() -> Cow<'static, str> {
         format!(
-            "{outer}+{inner}:",
+            "{outer}+{inner}",
             outer = Type::protocol(),
             inner = Protocol::scheme()
         )
@@ -134,7 +129,7 @@ impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource for FileR
     }
 
     fn parses(maybe_ref: &str) -> bool {
-        if maybe_ref.starts_with(&*Self::scheme()) {
+        if maybe_ref.starts_with(&format!("{scheme}:", scheme = Self::scheme())) {
             return true;
         }
 
@@ -151,13 +146,21 @@ impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource for FileR
 
 impl<Protocol: FileProtocol, Type: ApplicationProtocol> Display for FileRef<Protocol, Type> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{outer}+{url}{attributes}",
-            outer = self._type,
-            url = self.url,
-            attributes = serde_urlencoded::to_string(&self.attributes).unwrap_or_default()
-        )
+        let mut url: Url = Url::parse(&format!(
+            "{application}+{url}",
+            application = self._type,
+            url = self.url
+        ))
+        .unwrap();
+
+        url.set_query(
+            serde_urlencoded::to_string(&self.attributes)
+                .ok()
+                .filter(|s| !s.is_empty())
+                .as_deref(),
+        );
+
+        write!(f, "{url}")
     }
 }
 
@@ -213,13 +216,76 @@ pub enum ParseFileError {
     Url(#[from] url::ParseError),
     #[error(transparent)]
     FileUrl(#[from] WrappedUrlParseError),
-    #[error("Invalid scheme (expected: '{0}:', found '{1}:'")]
+    #[error("Invalid scheme (expected: '{0}:', found '{1}:')")]
     InvalidScheme(String, String),
     #[error("No repo specified")]
     NoRepo,
-    #[error("Couldn't parse query")]
+    #[error("Couldn't parse query: {0}")]
     Query(#[from] serde_urlencoded::de::Error),
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+
+    use super::*;
+    use crate::flake_ref2::tests::{roundtrip, roundtrip_to};
+
+    type FileFileRef = super::FileRef<protocol::File, File>;
+    type HttpFileRef = super::FileRef<protocol::HTTP, File>;
+    type HttpsFileRef = super::FileRef<protocol::HTTPS, File>;
+
+    type FileTarballRef = super::FileRef<protocol::File, Tarball>;
+    type HttpTarballRef = super::FileRef<protocol::HTTP, Tarball>;
+    type HttpsTarballRef = super::FileRef<protocol::HTTPS, Tarball>;
+
+    #[test]
+    fn file_file_roundtrips() {
+        roundtrip::<FileFileRef>("file+file://somewhere/there");
+        roundtrip_to::<FileFileRef>("file://somewhere/there", "file+file://somewhere/there");
+        roundtrip::<FileFileRef>("file+file://somewhere/there?unpack=true");
+    }
+
+    #[test]
+    fn file_http_roundtrips() {
+        roundtrip::<HttpFileRef>("file+http://somewhere/there");
+        roundtrip_to::<HttpFileRef>("http://somewhere/there", "file+http://somewhere/there");
+        roundtrip::<HttpFileRef>("file+http://somewhere/there?unpack=true");
+    }
+
+    #[test]
+    fn file_https_roundtrips() {
+        roundtrip::<HttpsFileRef>("file+https://somewhere/there");
+        roundtrip_to::<HttpsFileRef>("https://somewhere/there", "file+https://somewhere/there");
+        roundtrip::<HttpsFileRef>("file+https://somewhere/there?unpack=true");
+    }
+
+    #[test]
+    fn tarball_file_roundtrips() {
+        roundtrip::<FileTarballRef>("tarball+file://somewhere/there");
+        roundtrip_to::<FileTarballRef>(
+            "file://somewhere/there.tar.gz",
+            "tarball+file://somewhere/there.tar.gz",
+        );
+        roundtrip::<FileTarballRef>("tarball+file://somewhere/there?unpack=true");
+    }
+
+    #[test]
+    fn tarball_http_roundtrips() {
+        roundtrip::<HttpTarballRef>("tarball+http://somewhere/there");
+        roundtrip_to::<HttpTarballRef>(
+            "http://somewhere/there.tar.gz",
+            "tarball+http://somewhere/there.tar.gz",
+        );
+        roundtrip::<HttpTarballRef>("tarball+http://somewhere/there?unpack=true");
+    }
+
+    #[test]
+    fn tarball_https_roundtrips() {
+        roundtrip::<HttpsTarballRef>("tarball+https://somewhere/there");
+        roundtrip_to::<HttpsTarballRef>(
+            "https://somewhere/there.tar.gz",
+            "tarball+https://somewhere/there.tar.gz",
+        );
+        roundtrip::<HttpsTarballRef>("tarball+https://somewhere/there?unpack=true");
+    }
+}
