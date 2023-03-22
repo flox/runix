@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::str::FromStr;
 
@@ -10,12 +10,12 @@ use url::Url;
 use super::FlakeRefSource;
 
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/path.cc#L46>
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, PartialOrd, Ord)]
 #[serde(tag = "indirect")]
 pub struct IndirectRef {
-    id: String,
+    pub id: String,
     #[serde(flatten)]
-    attributes: HashMap<String, String>,
+    pub attributes: BTreeMap<String, String>,
 }
 
 impl FlakeRefSource for IndirectRef {
@@ -24,8 +24,15 @@ impl FlakeRefSource for IndirectRef {
     }
 
     fn parses(maybe_ref: &str) -> bool {
-        maybe_ref.starts_with("flake")
-            || ('a'..='z').any(|prefix| maybe_ref.starts_with(prefix))
+        if maybe_ref.starts_with("flake:") {
+            return true;
+        }
+
+        if maybe_ref.contains(':') {
+            return false;
+        }
+
+        ('a'..='z').any(|prefix| maybe_ref.starts_with(prefix))
             || ('A'..='Z').any(|prefix| maybe_ref.starts_with(prefix))
     }
 }
@@ -47,8 +54,12 @@ impl FromStr for IndirectRef {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url = match Url::parse(s) {
-            Ok(url) => url,
-            Err(_) if dbg!(Self::parses(s)) && !s.starts_with(&*Self::scheme()) => {
+            Ok(url) if url.scheme() == Self::scheme() => url,
+            Ok(url_bad_scheme) => Err(ParseIndirectError::InvalidScheme(
+                url_bad_scheme.scheme().to_string(),
+                Self::scheme().into_owned(),
+            ))?,
+            Err(_) if Self::parses(s) && !s.starts_with(&*Self::scheme()) => {
                 Url::parse(&format!("{scheme}:{s}", scheme = Self::scheme()))?
             },
             e => e?,
@@ -66,13 +77,12 @@ pub enum ParseIndirectError {
     Url(#[from] url::ParseError),
     #[error("Invalid scheme (expected: '{0}:', found '{1}:'")]
     InvalidScheme(String, String),
-    #[error("Couldn't parse query")]
+    #[error("Couldn't parse query: {0}")]
     Query(#[from] serde_urlencoded::de::Error),
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     use super::*;
 
@@ -81,7 +91,7 @@ mod tests {
     fn indirect_to_from_url() {
         let expect = IndirectRef {
             id: "nixpkgs-flox".into(),
-            attributes: HashMap::default(),
+            attributes: BTreeMap::default(),
         };
 
         let flakeref = "flake:nixpkgs-flox";
@@ -94,10 +104,15 @@ mod tests {
     fn parses_registry_flakeref() {
         let expected = IndirectRef {
             id: "nixpkgs".to_string(),
-            attributes: HashMap::default(),
+            attributes: BTreeMap::default(),
         };
 
         assert_eq!(IndirectRef::from_str("flake:nixpkgs").unwrap(), expected);
         assert_eq!(IndirectRef::from_str("nixpkgs").unwrap(), expected);
+    }
+
+    #[test]
+    fn does_not_parse_other() {
+        IndirectRef::from_str("github:nixpkgs").unwrap_err();
     }
 }

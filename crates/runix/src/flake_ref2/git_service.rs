@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::fmt::Display;
-use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -9,11 +8,11 @@ use thiserror::Error;
 use url::Url;
 
 use self::service::GitService;
-use super::lock::RevOrRef;
+use super::lock::{NarHash, Rev, RevOrRef};
 use super::FlakeRefSource;
-use crate::flake_ref::{CommitRef, NarHash, RepoHost};
+use crate::flake_ref::RepoHost;
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct GitServiceRef<Service> {
     owner: String,
     repo: String,
@@ -28,14 +27,16 @@ pub struct GitServiceRef<Service> {
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+#[serde_with::skip_serializing_none]
+#[serde(deny_unknown_fields)]
 pub struct GitServiceAttributes {
     host: Option<RepoHost>,
     dir: Option<PathBuf>,
 
     #[serde(rename = "ref")]
-    commit_ref: Option<CommitRef>,
+    r#ref: Option<String>,
 
-    rev_or_ref: Option<RevOrRef>,
+    rev: Option<Rev>,
 
     #[serde(flatten)]
     nar_hash: Option<NarHash>,
@@ -50,7 +51,7 @@ pub mod service {
     use derive_more::From;
     use serde::{Deserialize, Serialize};
 
-    #[derive(Default, Debug, PartialEq, Eq, From)]
+    #[derive(Default, Debug, PartialEq, Eq, From, Clone)]
     pub struct GitService<Service>(Service);
 
     impl<Service: GitServiceHost> Serialize for GitService<Service> {
@@ -83,7 +84,7 @@ pub mod service {
         fn scheme() -> Cow<'static, str>;
     }
 
-    #[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq)]
+    #[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq, Clone)]
     pub struct Github;
     impl GitServiceHost for Github {
         fn scheme() -> Cow<'static, str> {
@@ -91,9 +92,8 @@ pub mod service {
         }
     }
 
-    #[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq)]
+    #[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq, Clone)]
     pub struct Gitlab;
-
     impl GitServiceHost for Gitlab {
         fn scheme() -> Cow<'static, str> {
             "gitlab".into()
@@ -127,13 +127,25 @@ impl<Service: service::GitServiceHost> FromStr for GitServiceRef<Service> {
         };
 
         let mut attributes: GitServiceAttributes =
-            serde_urlencoded::from_str(url.query().unwrap_or("")).unwrap();
+            serde_urlencoded::from_str(url.query().unwrap_or_default())?;
 
-        if attributes.rev_or_ref.is_some() && rev_or_ref.is_some() {
-            return Err(ParseGitServiceError::TwoRevs);
+        // if let Some(key) = attributes._unknown.keys().next() {
+        //     Err(ParseGitServiceError::UnkownAttribute(key.to_string()))?;
+        // }
+
+        if attributes.rev.is_some() && attributes.r#ref.is_some() {
+            Err(ParseGitServiceError::TwoRevs)?;
         }
 
-        attributes.rev_or_ref = attributes.rev_or_ref.or(rev_or_ref);
+        if (attributes.rev.is_some() || attributes.r#ref.is_some()) && rev_or_ref.is_some() {
+            Err(ParseGitServiceError::TwoRevs)?;
+        }
+
+        match rev_or_ref {
+            Some(RevOrRef::Rev { rev }) => attributes.rev = Some(rev),
+            Some(RevOrRef::Ref { reference }) => attributes.r#ref = Some(reference),
+            None => {},
+        }
 
         Ok(GitServiceRef {
             owner: owner.to_string(),
@@ -155,19 +167,21 @@ impl<Service: service::GitServiceHost> Display for GitServiceRef<Service> {
             owner = self.owner,
             repo = self.repo
         )?;
-        if let Some(rev_or_ref) = attributes.rev_or_ref.take() {
-            let part = match rev_or_ref {
-                RevOrRef::Rev { ref rev } => rev.deref(),
-                RevOrRef::Ref { ref reference } => reference,
-            };
+
+        if let Some(part) = attributes
+            .rev
+            .take()
+            .map(|rev| rev.to_string())
+            .or_else(|| attributes.r#ref.take())
+        {
             write!(f, "/{part}")?;
         };
 
-        write!(
-            f,
-            "{query}",
-            query = serde_urlencoded::to_string(attributes).unwrap()
-        )?;
+        let query = serde_urlencoded::to_string(attributes).unwrap_or_default();
+        if !query.is_empty() {
+            write!(f, "?{query}",)?;
+        }
+
         Ok(())
     }
 }
@@ -178,10 +192,14 @@ pub enum ParseGitServiceError {
     Url(#[from] url::ParseError),
     #[error("Url contains multiple commit hashes")]
     TwoRevs,
+    #[error("Couldn't parse query: {0}")]
+    Query(#[from] serde_urlencoded::de::Error),
     #[error("Invalid scheme (expected: '{0}:', found '{1}:'")]
     InvalidScheme(String, String),
     #[error("No repo specified")]
     NoRepo,
+    #[error("Unkown Attribute: {0}")]
+    UnkownAttribute(String),
 }
 
 #[cfg(test)]
@@ -189,10 +207,34 @@ mod tests {
     use std::path::Path;
 
     use super::*;
+    use crate::flake_ref2::tests::{roundtrip, roundtrip_to};
 
     #[test]
     fn parse_github_simple() {
-        GitServiceRef::<service::Github>::from_str("github:owner/repo").unwrap();
+        roundtrip::<GitServiceRef<service::Github>>("github:owner/repo");
+        roundtrip::<GitServiceRef<service::Github>>("github:owner/repo/feature-branch");
+        roundtrip_to::<GitServiceRef<service::Github>>(
+            "github:owner/repo?ref=feature-branch",
+            "github:owner/repo/feature-branch",
+        );
+        roundtrip_to::<GitServiceRef<service::Github>>(
+            "github:owner/repo?rev=50500a744e3c2af9d89123ae17b71406b428c3ab",
+            "github:owner/repo/50500a744e3c2af9d89123ae17b71406b428c3ab",
+        );
+    }
+
+    #[test]
+    fn parse_invalid_simple() {
+        GitServiceRef::<service::Github>::from_str("github:owner/repo/feature?ref=another-feature")
+            .unwrap_err();
+        GitServiceRef::<service::Github>::from_str(
+            "github:owner/repo/feature?rev=50500a744e3c2af9d89123ae17b71406b428c3ab",
+        )
+        .unwrap_err();
+        GitServiceRef::<service::Github>::from_str(
+            "github:owner/repo?ref=feature&rev=50500a744e3c2af9d89123ae17b71406b428c3ab",
+        )
+        .unwrap_err();
     }
 
     #[test]
@@ -206,7 +248,7 @@ mod tests {
     #[test]
     fn parse_attributes() {
         assert_eq!(
-            GitServiceRef::<service::Github>::from_str("github:owner/repo?ref=abcdef&dir=subdir")
+            GitServiceRef::<service::Github>::from_str("github:owner/repo/unstable?dir=subdir")
                 .unwrap(),
             GitServiceRef {
                 owner: "owner".to_string(),
@@ -214,10 +256,10 @@ mod tests {
                 attributes: GitServiceAttributes {
                     host: None,
                     dir: Some(Path::new("subdir").to_path_buf()),
-                    commit_ref: Some("abcdef".to_string()),
+                    r#ref: Some("unstable".into()),
+                    rev: None,
                     nar_hash: None,
                     last_modified: None,
-                    rev_or_ref: None,
                 },
                 _type: GitService::default()
             }
@@ -226,28 +268,48 @@ mod tests {
 
     #[test]
     fn parses_github_flakeref() {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&GitServiceRef::<service::Github> {
+                owner: "flox".into(),
+                repo: "nixpkgs".into(),
+                attributes: GitServiceAttributes {
+                    host: None,
+                    dir: None,
+                    r#ref: Some("unstable".into()),
+                    rev: None,
+                    nar_hash: None,
+                    last_modified: None,
+                },
+                _type: GitService::default(),
+            })
+            .unwrap()
+        );
+
         let flakeref = serde_json::from_str::<GitServiceRef<service::Github>>(
             r#"
 {
-    "owner": "flox",
-    "ref": "unstable",
-    "repo": "nixpkgs",
-    "type": "github"
+  "owner": "flox",
+  "repo": "nixpkgs",
+  "ref": "unstable",
+  "type": "github"
 }
         "#,
         )
         .expect("should parse");
+
+        dbg!(&flakeref);
 
         assert_eq!(flakeref, GitServiceRef {
             owner: "flox".into(),
             repo: "nixpkgs".into(),
             attributes: GitServiceAttributes {
                 host: None,
-                commit_ref: Some("unstable".into()),
                 dir: None,
-                rev_or_ref: None,
+                r#ref: Some("unstable".into()),
+                rev: None,
                 nar_hash: None,
-                last_modified: None
+                last_modified: None,
             },
             _type: GitService::default(),
         });
