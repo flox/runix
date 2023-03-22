@@ -28,7 +28,7 @@ pub trait FlakeRefSource: FromStr + Display {
     }
 }
 
-#[derive(Serialize, Deserialize, Display, From, Debug)]
+#[derive(Serialize, Deserialize, Display, From, Debug, Clone, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum FlakeRef {
     FileFile(FileRef<protocol::File, file::File>),
@@ -109,7 +109,7 @@ pub enum ParseFlakeRefError {
     Invalid,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, From)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, From, Clone)]
 #[serde(try_from = "TimestampDeserialize")]
 pub struct Timestamp(
     #[serde(serialize_with = "chrono::serde::ts_seconds::serialize")] chrono::DateTime<chrono::Utc>,

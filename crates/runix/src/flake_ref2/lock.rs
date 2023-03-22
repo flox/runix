@@ -18,7 +18,7 @@ pub struct NarHash {
     nar_hash: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, Deref, PartialEq, Eq, From)]
+#[derive(Debug, Deserialize, Serialize, Deref, PartialEq, Eq, From, Clone)]
 #[from(forward)]
 pub struct LastModified {
     #[serde(rename = "lastModified")]

@@ -15,7 +15,7 @@ use crate::flake_ref::RevCount;
 pub type GitUrl<Protocol> = WrappedUrl<Protocol>;
 
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/git.cc#L287>
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 #[serde(tag = "git")]
 pub struct GitRef<Protocol: GitProtocol> {
     url: GitUrl<Protocol>,
@@ -24,7 +24,7 @@ pub struct GitRef<Protocol: GitProtocol> {
     attributes: GitAttributes,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct GitAttributes {
     shallow: Option<bool>,
     submodules: Option<bool>,
@@ -100,7 +100,7 @@ pub enum ParseGitError {
     InvalidScheme(String, String),
     #[error("No repo specified")]
     NoRepo,
-    #[error("Couldn't parse query")]
+    #[error("Couldn't parse query: {0}")]
     Query(#[from] serde_urlencoded::de::Error),
 }
 

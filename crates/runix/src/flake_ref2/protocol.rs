@@ -12,7 +12,7 @@ pub trait Protocol {
     fn scheme() -> Cow<'static, str>;
 }
 
-#[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq, Clone)]
 pub struct File;
 impl Protocol for File {
     fn scheme() -> Cow<'static, str> {
@@ -20,7 +20,7 @@ impl Protocol for File {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq, Clone)]
 pub struct SSH;
 impl Protocol for SSH {
     fn scheme() -> Cow<'static, str> {
@@ -28,7 +28,7 @@ impl Protocol for SSH {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq, Clone)]
 pub struct HTTPS;
 impl Protocol for HTTPS {
     fn scheme() -> Cow<'static, str> {
@@ -36,7 +36,7 @@ impl Protocol for HTTPS {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq, Clone)]
 pub struct HTTP;
 impl Protocol for HTTP {
     fn scheme() -> Cow<'static, str> {
@@ -44,7 +44,7 @@ impl Protocol for HTTP {
     }
 }
 
-#[derive(DeserializeFromStr, SerializeDisplay, Display, Debug, PartialEq, Eq, Deref)]
+#[derive(DeserializeFromStr, SerializeDisplay, Display, Debug, PartialEq, Eq, Deref, Clone)]
 #[display(fmt = "{inner}")]
 pub struct WrappedUrl<Protocol> {
     #[deref]

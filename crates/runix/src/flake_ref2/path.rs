@@ -11,7 +11,7 @@ use super::lock::{LastModified, NarHash, Rev};
 use super::FlakeRefSource;
 
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/path.cc#L46>
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 #[serde(tag = "path")]
 pub struct PathRef {
     path: PathBuf,
@@ -19,7 +19,7 @@ pub struct PathRef {
     attributes: PathAttributes,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct PathAttributes {
     #[serde(rename = "revCount")]
     rev_count: Option<RevCount>,
@@ -33,7 +33,7 @@ pub struct PathAttributes {
     rev: Option<Rev>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 #[serde(try_from = "StringOrInt")]
 pub struct RevCount(u64);
 
@@ -119,7 +119,7 @@ pub enum ParsePathRefError {
     Url(#[from] url::ParseError),
     #[error("Invalid scheme (expected: '{0}:', found '{1}:'")]
     InvalidScheme(String, String),
-    #[error("Couldn't parse query")]
+    #[error("Couldn't parse query: {0}")]
     Query(#[from] serde_urlencoded::de::Error),
 }
 

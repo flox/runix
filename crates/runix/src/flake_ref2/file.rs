@@ -16,7 +16,7 @@ use super::{BoolReprs, FlakeRefSource};
 pub type FileUrl<Protocol> = WrappedUrl<Protocol>;
 
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/tarball.cc#L287>
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 #[serde(tag = "file")]
 #[serde(deny_unknown_fields)]
 pub struct FileRef<Protocol: FileProtocol, A: ApplicationProtocol = File> {
@@ -29,7 +29,7 @@ pub struct FileRef<Protocol: FileProtocol, A: ApplicationProtocol = File> {
     attributes: FileAttributes,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct FileAttributes {
     #[serde(flatten)]
@@ -40,7 +40,7 @@ pub struct FileAttributes {
     name: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Deref)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Deref, Clone)]
 struct Unpack(#[serde(deserialize_with = "BoolReprs::deserialize_bool")] bool);
 
 pub trait ApplicationProtocol: Default {
@@ -48,7 +48,7 @@ pub trait ApplicationProtocol: Default {
     fn required(url: &Url) -> bool;
 }
 
-#[derive(Debug, Default, PartialEq, Eq, DeserializeFromStr, SerializeDisplay)]
+#[derive(Debug, Default, PartialEq, Eq, DeserializeFromStr, SerializeDisplay, Clone)]
 pub struct Application<P: ApplicationProtocol> {
     inner: P,
 }
@@ -89,7 +89,7 @@ fn is_tarball_url(url: &Url) -> bool {
     is_tarball_url
 }
 
-#[derive(Display, Default, Debug)]
+#[derive(Display, Default, Debug, Clone, PartialEq, Eq)]
 pub struct File;
 impl ApplicationProtocol for File {
     fn protocol() -> Cow<'static, str> {
@@ -101,7 +101,7 @@ impl ApplicationProtocol for File {
     }
 }
 
-#[derive(Display, Default, Debug)]
+#[derive(Display, Default, Debug, Clone, PartialEq, Eq)]
 pub struct Tarball;
 impl ApplicationProtocol for Tarball {
     fn protocol() -> Cow<'static, str> {
