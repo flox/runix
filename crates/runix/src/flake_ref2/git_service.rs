@@ -14,7 +14,7 @@ use super::FlakeRefSource;
 use crate::flake_ref::{CommitRef, NarHash, RepoHost};
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
-pub struct GitServiceSource<Service> {
+pub struct GitServiceRef<Service> {
     owner: String,
     repo: String,
 
@@ -101,12 +101,12 @@ pub mod service {
     }
 }
 
-impl<Service: service::GitServiceHost> FlakeRefSource for GitServiceSource<Service> {
+impl<Service: service::GitServiceHost> FlakeRefSource for GitServiceRef<Service> {
     fn scheme() -> Cow<'static, str> {
         Service::scheme()
     }
 }
-impl<Service: service::GitServiceHost> FromStr for GitServiceSource<Service> {
+impl<Service: service::GitServiceHost> FromStr for GitServiceRef<Service> {
     type Err = ParseGitServiceError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -135,7 +135,7 @@ impl<Service: service::GitServiceHost> FromStr for GitServiceSource<Service> {
 
         attributes.rev_or_ref = attributes.rev_or_ref.or(rev_or_ref);
 
-        Ok(GitServiceSource {
+        Ok(GitServiceRef {
             owner: owner.to_string(),
             repo: repo.to_string(),
             attributes,
@@ -143,7 +143,8 @@ impl<Service: service::GitServiceHost> FromStr for GitServiceSource<Service> {
         })
     }
 }
-impl<Service: service::GitServiceHost> Display for GitServiceSource<Service> {
+
+impl<Service: service::GitServiceHost> Display for GitServiceRef<Service> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut attributes = self.attributes.clone();
 
@@ -191,13 +192,13 @@ mod tests {
 
     #[test]
     fn parse_github_simple() {
-        GitServiceSource::<service::Github>::from_str("github:owner/repo").unwrap();
+        GitServiceRef::<service::Github>::from_str("github:owner/repo").unwrap();
     }
 
     #[test]
     fn fail_parse_github_no_repo() {
         assert!(matches!(
-            GitServiceSource::<service::Github>::from_str("github:owner"),
+            GitServiceRef::<service::Github>::from_str("github:owner"),
             Err(ParseGitServiceError::NoRepo)
         ))
     }
@@ -205,11 +206,9 @@ mod tests {
     #[test]
     fn parse_attributes() {
         assert_eq!(
-            GitServiceSource::<service::Github>::from_str(
-                "github:owner/repo?ref=abcdef&dir=subdir"
-            )
-            .unwrap(),
-            GitServiceSource {
+            GitServiceRef::<service::Github>::from_str("github:owner/repo?ref=abcdef&dir=subdir")
+                .unwrap(),
+            GitServiceRef {
                 owner: "owner".to_string(),
                 repo: "repo".to_string(),
                 attributes: GitServiceAttributes {
@@ -227,7 +226,7 @@ mod tests {
 
     #[test]
     fn parses_github_flakeref() {
-        let flakeref = serde_json::from_str::<GitServiceSource<service::Github>>(
+        let flakeref = serde_json::from_str::<GitServiceRef<service::Github>>(
             r#"
 {
     "owner": "flox",
@@ -239,7 +238,7 @@ mod tests {
         )
         .expect("should parse");
 
-        assert_eq!(flakeref, GitServiceSource {
+        assert_eq!(flakeref, GitServiceRef {
             owner: "flox".into(),
             repo: "nixpkgs".into(),
             attributes: GitServiceAttributes {

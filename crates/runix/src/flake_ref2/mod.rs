@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use self::file::FileRef;
 use self::git::GitRef;
-use self::git_service::{service, GitServiceSource};
+use self::git_service::{service, GitServiceRef};
 use self::indirect::IndirectRef;
 use self::path::PathRef;
 
@@ -37,8 +37,8 @@ pub enum FlakeRef {
     TarballFile(FileRef<protocol::File, file::Tarball>),
     TarballHTTP(FileRef<protocol::HTTP, file::Tarball>),
     TarballHTTPS(FileRef<protocol::HTTPS, file::Tarball>),
-    Github(GitServiceSource<service::Github>),
-    Gitlab(GitServiceSource<service::Gitlab>),
+    Github(GitServiceRef<service::Github>),
+    Gitlab(GitServiceRef<service::Gitlab>),
     Path(PathRef),
     GitPath(GitRef<protocol::File>),
     GitSsh(GitRef<protocol::SSH>),
@@ -72,11 +72,11 @@ impl FromStr for FlakeRef {
             _ if FileRef::<protocol::HTTPS, file::Tarball>::parses(s) => {
                 s.parse::<FileRef<protocol::HTTPS, file::Tarball>>()?.into()
             },
-            _ if GitServiceSource::<service::Github>::parses(s) => {
-                s.parse::<GitServiceSource<service::Github>>()?.into()
+            _ if GitServiceRef::<service::Github>::parses(s) => {
+                s.parse::<GitServiceRef<service::Github>>()?.into()
             },
-            _ if GitServiceSource::<service::Gitlab>::parses(s) => {
-                s.parse::<GitServiceSource<service::Gitlab>>()?.into()
+            _ if GitServiceRef::<service::Gitlab>::parses(s) => {
+                s.parse::<GitServiceRef<service::Gitlab>>()?.into()
             },
             _ if PathRef::parses(s) => s.parse::<PathRef>()?.into(),
             _ if GitRef::<protocol::File>::parses(s) => s.parse::<GitRef<protocol::File>>()?.into(),
@@ -150,6 +150,7 @@ pub enum ParseTimeError {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(untagged)]
 pub enum BoolReprs {
     String(String),
     Bool(bool),
@@ -178,7 +179,29 @@ impl BoolReprs {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
+
+    pub(super) fn roundtrip_to<T>(input: &str, output: &str)
+    where
+        T: FromStr + Display,
+        <T as FromStr>::Err: Debug + Display,
+    {
+        let parsed = input
+            .parse::<T>()
+            .unwrap_or_else(|e| panic!("'{input}' should parse: \n{e}\n{e:#?}"));
+        assert_eq!(parsed.to_string(), output);
+    }
+
+    pub(super) fn roundtrip<T>(input: &str)
+    where
+        T: FromStr + Display,
+        <T as FromStr>::Err: Debug + Display,
+    {
+        roundtrip_to::<T>(input, input)
+    }
+
+    use std::fmt::Debug;
+
     use super::*;
 
     #[test]
