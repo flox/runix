@@ -84,7 +84,7 @@ pub mod service {
         fn scheme() -> Cow<'static, str>;
     }
 
-    #[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq, Clone)]
+    #[derive(Default, Debug, PartialEq, Eq, Clone)]
     pub struct Github;
     impl GitServiceHost for Github {
         fn scheme() -> Cow<'static, str> {
@@ -92,7 +92,7 @@ pub mod service {
         }
     }
 
-    #[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq, Clone)]
+    #[derive(Default, Debug, PartialEq, Eq, Clone)]
     pub struct Gitlab;
     impl GitServiceHost for Gitlab {
         fn scheme() -> Cow<'static, str> {
