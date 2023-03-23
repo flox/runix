@@ -129,10 +129,6 @@ impl<Service: service::GitServiceHost> FromStr for GitServiceRef<Service> {
         let mut attributes: GitServiceAttributes =
             serde_urlencoded::from_str(url.query().unwrap_or_default())?;
 
-        // if let Some(key) = attributes._unknown.keys().next() {
-        //     Err(ParseGitServiceError::UnkownAttribute(key.to_string()))?;
-        // }
-
         if attributes.rev.is_some() && attributes.r#ref.is_some() {
             Err(ParseGitServiceError::TwoRevs)?;
         }
