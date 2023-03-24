@@ -39,13 +39,16 @@ impl FlakeRefSource for IndirectRef {
 
 impl Display for IndirectRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{prefix}:{id}{attributes}",
-            prefix = Self::scheme(),
-            id = self.id,
-            attributes = serde_urlencoded::to_string(&self.attributes).unwrap_or_default()
-        )
+        write!(f, "{prefix}:{id}", prefix = Self::scheme(), id = self.id)?;
+        if !self.attributes.is_empty() {
+            write!(
+                f,
+                "?{attributes}",
+                attributes = serde_urlencoded::to_string(&self.attributes).unwrap_or_default()
+            )?
+        }
+
+        Ok(())
     }
 }
 
@@ -85,6 +88,7 @@ pub enum ParseIndirectError {
 mod tests {
 
     use super::*;
+    use crate::flake_ref::tests::roundtrip_to;
 
     /// Ensure that an indirect flake ref serializes without information loss
     #[test]
@@ -114,5 +118,10 @@ mod tests {
     #[test]
     fn does_not_parse_other() {
         IndirectRef::from_str("github:nixpkgs").unwrap_err();
+    }
+
+    #[test]
+    fn roundtrip_attributes() {
+        roundtrip_to::<IndirectRef>("nixpkgs?ref=master&dir=1", "flake:nixpkgs?dir=1&ref=master");
     }
 }
