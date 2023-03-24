@@ -26,7 +26,7 @@ pub struct FileBasedRef<Protocol: FileProtocol, A: ApplicationProtocol> {
     _type: Application<A>,
 
     #[serde(flatten)]
-    attributes: FileAttributes,
+    pub attributes: FileAttributes,
 }
 
 pub type FileRef<Protocol> = FileBasedRef<Protocol, application::File>;
@@ -36,15 +36,15 @@ pub type TarballRef<Protocol> = FileBasedRef<Protocol, application::Tarball>;
 #[serde(deny_unknown_fields)]
 pub struct FileAttributes {
     #[serde(flatten)]
-    nar_hash: Option<NarHash>,
+    pub nar_hash: Option<NarHash>,
 
-    unpack: Option<Unpack>,
+    pub unpack: Option<Unpack>,
 
-    name: Option<String>,
+    pub name: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Deref, Clone)]
-struct Unpack(#[serde(deserialize_with = "BoolReprs::deserialize_bool")] bool);
+pub struct Unpack(#[serde(deserialize_with = "BoolReprs::deserialize_bool")] bool);
 
 pub mod application {
     use std::borrow::Cow;
@@ -306,5 +306,10 @@ mod tests {
             "tarball+https://somewhere/there.tar.gz",
         );
         roundtrip::<HttpsTarballRef>("tarball+https://somewhere/there?unpack=true");
+    }
+
+    #[test]
+    fn test_parse_nar_hash() {
+        roundtrip::<FileFileRef>("file+file://somewhere/there?narHash=sha256-MjeRjunqfGTBGU401nxIjs7PC9PZZ1FBCZp%2fbRB3C2M%3D")
     }
 }

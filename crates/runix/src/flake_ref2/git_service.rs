@@ -8,17 +8,17 @@ use thiserror::Error;
 use url::Url;
 
 use self::service::GitService;
-use super::lock::{NarHash, Rev, RevOrRef};
+use super::lock::{LastModified, NarHash, Rev, RevOrRef};
 use super::FlakeRefSource;
 use crate::flake_ref::RepoHost;
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct GitServiceRef<Service> {
-    owner: String,
-    repo: String,
+    pub owner: String,
+    pub repo: String,
 
     #[serde(flatten)]
-    attributes: GitServiceAttributes,
+    pub attributes: GitServiceAttributes,
 
     #[serde(rename = "type")]
     #[serde(bound(deserialize = "GitService<Service>: Deserialize<'de>"))]
@@ -30,19 +30,19 @@ pub struct GitServiceRef<Service> {
 #[serde_with::skip_serializing_none]
 #[serde(deny_unknown_fields)]
 pub struct GitServiceAttributes {
-    host: Option<RepoHost>,
-    dir: Option<PathBuf>,
+    pub host: Option<RepoHost>,
+    pub dir: Option<PathBuf>,
 
     #[serde(rename = "ref")]
-    r#ref: Option<String>,
+    pub reference: Option<String>,
 
-    rev: Option<Rev>,
-
-    #[serde(flatten)]
-    nar_hash: Option<NarHash>,
+    pub rev: Option<Rev>,
 
     #[serde(flatten)]
-    last_modified: Option<NarHash>,
+    pub nar_hash: Option<NarHash>,
+
+    #[serde(flatten)]
+    pub last_modified: Option<LastModified>,
 }
 
 pub mod service {
@@ -129,17 +129,17 @@ impl<Service: service::GitServiceHost> FromStr for GitServiceRef<Service> {
         let mut attributes: GitServiceAttributes =
             serde_urlencoded::from_str(url.query().unwrap_or_default())?;
 
-        if attributes.rev.is_some() && attributes.r#ref.is_some() {
+        if attributes.rev.is_some() && attributes.reference.is_some() {
             Err(ParseGitServiceError::TwoRevs)?;
         }
 
-        if (attributes.rev.is_some() || attributes.r#ref.is_some()) && rev_or_ref.is_some() {
+        if (attributes.rev.is_some() || attributes.reference.is_some()) && rev_or_ref.is_some() {
             Err(ParseGitServiceError::TwoRevs)?;
         }
 
         match rev_or_ref {
             Some(RevOrRef::Rev { rev }) => attributes.rev = Some(rev),
-            Some(RevOrRef::Ref { reference }) => attributes.r#ref = Some(reference),
+            Some(RevOrRef::Ref { reference }) => attributes.reference = Some(reference),
             None => {},
         }
 
@@ -168,7 +168,7 @@ impl<Service: service::GitServiceHost> Display for GitServiceRef<Service> {
             .rev
             .take()
             .map(|rev| rev.to_string())
-            .or_else(|| attributes.r#ref.take())
+            .or_else(|| attributes.reference.take())
         {
             write!(f, "/{part}")?;
         };
@@ -252,7 +252,7 @@ mod tests {
                 attributes: GitServiceAttributes {
                     host: None,
                     dir: Some(Path::new("subdir").to_path_buf()),
-                    r#ref: Some("unstable".into()),
+                    reference: Some("unstable".into()),
                     rev: None,
                     nar_hash: None,
                     last_modified: None,
@@ -272,7 +272,7 @@ mod tests {
                 attributes: GitServiceAttributes {
                     host: None,
                     dir: None,
-                    r#ref: Some("unstable".into()),
+                    reference: Some("unstable".into()),
                     rev: None,
                     nar_hash: None,
                     last_modified: None,
@@ -302,7 +302,7 @@ mod tests {
             attributes: GitServiceAttributes {
                 host: None,
                 dir: None,
-                r#ref: Some("unstable".into()),
+                reference: Some("unstable".into()),
                 rev: None,
                 nar_hash: None,
                 last_modified: None,

@@ -18,29 +18,29 @@ pub type GitUrl<Protocol> = WrappedUrl<Protocol>;
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 #[serde(tag = "git")]
 pub struct GitRef<Protocol: GitProtocol> {
-    url: GitUrl<Protocol>,
+    pub url: GitUrl<Protocol>,
 
     #[serde(flatten)]
-    attributes: GitAttributes,
+    pub attributes: GitAttributes,
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct GitAttributes {
-    shallow: Option<bool>,
-    submodules: Option<bool>,
+    pub shallow: Option<bool>,
+    pub submodules: Option<bool>,
     #[serde(rename = "allRefs")]
-    all_refs: Option<bool>,
+    pub all_refs: Option<bool>,
 
     #[serde(rename = "revCount")]
-    rev_count: Option<RevCount>,
+    pub rev_count: Option<RevCount>,
 
     #[serde(flatten)]
-    rev: Option<Rev>,
+    pub rev: Option<Rev>,
 
     #[serde(rename = "ref")]
-    reference: Option<String>,
+    pub reference: Option<String>,
 
-    dir: Option<PathBuf>,
+    pub dir: Option<PathBuf>,
 }
 
 pub trait GitProtocol: Protocol {}

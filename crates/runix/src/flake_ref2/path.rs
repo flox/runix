@@ -14,23 +14,23 @@ use super::FlakeRefSource;
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 #[serde(tag = "path")]
 pub struct PathRef {
-    path: PathBuf,
+    pub path: PathBuf,
     #[serde(flatten)]
-    attributes: PathAttributes,
+    pub attributes: PathAttributes,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct PathAttributes {
     #[serde(rename = "revCount")]
-    rev_count: Option<RevCount>,
+    pub rev_count: Option<RevCount>,
 
     #[serde(flatten)]
-    nar_hash: Option<NarHash>,
+    pub nar_hash: Option<NarHash>,
 
     #[serde(flatten)]
-    last_modified: Option<LastModified>,
+    pub last_modified: Option<LastModified>,
 
-    rev: Option<Rev>,
+    pub rev: Option<Rev>,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]

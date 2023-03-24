@@ -15,14 +15,14 @@ static HASH_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("[a-f0-9]{40}").unwrap(
 #[from(forward)]
 pub struct NarHash {
     #[serde(rename = "narHash")]
-    nar_hash: String,
+    pub nar_hash: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Deref, PartialEq, Eq, From, Clone)]
 #[from(forward)]
 pub struct LastModified {
     #[serde(rename = "lastModified")]
-    last_modified: Timestamp,
+    pub last_modified: Timestamp,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
