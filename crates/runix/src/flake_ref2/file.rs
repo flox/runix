@@ -19,8 +19,8 @@ pub type FileUrl<Protocol> = WrappedUrl<Protocol>;
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 #[serde(tag = "file")]
 #[serde(deny_unknown_fields)]
-pub struct FileRef<Protocol: FileProtocol, A: ApplicationProtocol = File> {
-    url: WrappedUrl<Protocol>,
+pub struct FileBasedRef<Protocol: FileProtocol, A: ApplicationProtocol> {
+    pub url: WrappedUrl<Protocol>,
 
     #[serde(skip)]
     _type: Application<A>,
@@ -28,6 +28,9 @@ pub struct FileRef<Protocol: FileProtocol, A: ApplicationProtocol = File> {
     #[serde(flatten)]
     attributes: FileAttributes,
 }
+
+pub type FileRef<Protocol> = FileBasedRef<Protocol, application::File>;
+pub type TarballRef<Protocol> = FileBasedRef<Protocol, application::Tarball>;
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 #[serde(deny_unknown_fields)]
@@ -118,7 +121,9 @@ impl FileProtocol for protocol::File {}
 impl FileProtocol for protocol::HTTP {}
 impl FileProtocol for protocol::HTTPS {}
 
-impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource for FileRef<Protocol, Type> {
+impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource
+    for FileBasedRef<Protocol, Type>
+{
     fn scheme() -> Cow<'static, str> {
         format!(
             "{outer}+{inner}",
@@ -144,7 +149,7 @@ impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource for FileR
     }
 }
 
-impl<Protocol: FileProtocol, Type: ApplicationProtocol> Display for FileRef<Protocol, Type> {
+impl<Protocol: FileProtocol, App: ApplicationProtocol> Display for FileBasedRef<Protocol, App> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut url: Url = Url::parse(&format!(
             "{application}+{url}",
@@ -164,7 +169,7 @@ impl<Protocol: FileProtocol, Type: ApplicationProtocol> Display for FileRef<Prot
     }
 }
 
-impl<Protocol: FileProtocol, App: ApplicationProtocol> FromStr for FileRef<Protocol, App> {
+impl<Protocol: FileProtocol, App: ApplicationProtocol> FromStr for FileBasedRef<Protocol, App> {
     type Err = ParseFileError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -202,7 +207,7 @@ impl<Protocol: FileProtocol, App: ApplicationProtocol> FromStr for FileRef<Proto
         let attributes: FileAttributes =
             serde_urlencoded::from_str(url.query().unwrap_or_default())?;
 
-        Ok(FileRef {
+        Ok(FileBasedRef {
             url: wrapped,
             attributes,
             _type: Application::default(),
@@ -230,13 +235,13 @@ mod tests {
     use super::*;
     use crate::flake_ref2::tests::{roundtrip, roundtrip_to};
 
-    type FileFileRef = super::FileRef<protocol::File, File>;
-    type HttpFileRef = super::FileRef<protocol::HTTP, File>;
-    type HttpsFileRef = super::FileRef<protocol::HTTPS, File>;
+    type FileFileRef = super::FileRef<protocol::File>;
+    type HttpFileRef = super::FileRef<protocol::HTTP>;
+    type HttpsFileRef = super::FileRef<protocol::HTTPS>;
 
-    type FileTarballRef = super::FileRef<protocol::File, Tarball>;
-    type HttpTarballRef = super::FileRef<protocol::HTTP, Tarball>;
-    type HttpsTarballRef = super::FileRef<protocol::HTTPS, Tarball>;
+    type FileTarballRef = super::TarballRef<protocol::File>;
+    type HttpTarballRef = super::TarballRef<protocol::HTTP>;
+    type HttpsTarballRef = super::TarballRef<protocol::HTTPS>;
 
     #[test]
     fn file_file_roundtrips() {
