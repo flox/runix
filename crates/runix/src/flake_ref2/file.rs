@@ -1,14 +1,13 @@
 use std::borrow::Cow;
 use std::fmt::Display;
-use std::path::Path;
 use std::str::FromStr;
 
-use derive_more::{Deref, Display};
+use derive_more::Deref;
 use serde::{Deserialize, Serialize};
-use serde_with::{DeserializeFromStr, SerializeDisplay};
 use thiserror::Error;
 use url::Url;
 
+use self::application::{Application, ApplicationProtocol};
 use super::lock::NarHash;
 use super::protocol::{self, Protocol, WrappedUrl, WrappedUrlParseError};
 use super::{BoolReprs, FlakeRefSource};
@@ -46,73 +45,84 @@ pub struct FileAttributes {
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Deref, Clone)]
 struct Unpack(#[serde(deserialize_with = "BoolReprs::deserialize_bool")] bool);
 
-pub trait ApplicationProtocol: Default {
-    fn protocol() -> Cow<'static, str>;
-    fn required(url: &Url) -> bool;
-}
+pub mod application {
+    use std::borrow::Cow;
+    use std::fmt::Display;
+    use std::path::Path;
+    use std::str::FromStr;
 
-#[derive(Debug, Default, PartialEq, Eq, DeserializeFromStr, SerializeDisplay, Clone)]
-pub struct Application<P: ApplicationProtocol> {
-    inner: P,
-}
+    use serde_with::{DeserializeFromStr, SerializeDisplay};
+    use thiserror::Error;
+    use url::Url;
 
-#[derive(Debug, Error)]
-#[error("Invalid Application '{0}', expected {1}")]
-pub struct InvalidApplication<T: ApplicationProtocol>(String, Application<T>);
+    pub trait ApplicationProtocol: Default {
+        fn protocol() -> Cow<'static, str>;
+        fn required(url: &Url) -> bool;
+    }
 
-impl<T: ApplicationProtocol> FromStr for Application<T> {
-    type Err = InvalidApplication<T>;
+    #[derive(Debug, Default, PartialEq, Eq, DeserializeFromStr, SerializeDisplay, Clone)]
+    pub struct Application<P: ApplicationProtocol> {
+        inner: P,
+    }
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s != T::protocol() {
-            return Err(InvalidApplication(s.to_string(), Self::default()));
+    #[derive(Debug, Error)]
+    #[error("Invalid Application '{0}', expected {1}")]
+    pub struct InvalidApplication<T: ApplicationProtocol>(String, Application<T>);
+
+    impl<T: ApplicationProtocol> FromStr for Application<T> {
+        type Err = InvalidApplication<T>;
+
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            if s != T::protocol() {
+                return Err(InvalidApplication(s.to_string(), Self::default()));
+            }
+            Ok(Self::default())
         }
-        Ok(Self::default())
-    }
-}
-
-impl<T: ApplicationProtocol> Display for Application<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", T::protocol())
-    }
-}
-
-fn is_tarball_url(url: &Url) -> bool {
-    let is_tarball_url = Path::new(url.path())
-        .file_name()
-        .map(|name| {
-            [
-                ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst",
-            ]
-            .iter()
-            .any(|ext| name.to_string_lossy().ends_with(ext))
-        })
-        .unwrap_or_default();
-
-    is_tarball_url
-}
-
-#[derive(Display, Default, Debug, Clone, PartialEq, Eq)]
-pub struct File;
-impl ApplicationProtocol for File {
-    fn protocol() -> Cow<'static, str> {
-        "file".into()
     }
 
-    fn required(url: &Url) -> bool {
-        is_tarball_url(url)
-    }
-}
-
-#[derive(Display, Default, Debug, Clone, PartialEq, Eq)]
-pub struct Tarball;
-impl ApplicationProtocol for Tarball {
-    fn protocol() -> Cow<'static, str> {
-        "tarball".into()
+    impl<T: ApplicationProtocol> Display for Application<T> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", T::protocol())
+        }
     }
 
-    fn required(url: &Url) -> bool {
-        !is_tarball_url(url)
+    fn is_tarball_url(url: &Url) -> bool {
+        let is_tarball_url = Path::new(url.path())
+            .file_name()
+            .map(|name| {
+                [
+                    ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst",
+                ]
+                .iter()
+                .any(|ext| name.to_string_lossy().ends_with(ext))
+            })
+            .unwrap_or_default();
+
+        is_tarball_url
+    }
+
+    #[derive(Default, Debug, Clone, PartialEq, Eq)]
+    pub struct File;
+    impl ApplicationProtocol for File {
+        fn protocol() -> Cow<'static, str> {
+            "file".into()
+        }
+
+        fn required(url: &Url) -> bool {
+            is_tarball_url(url)
+        }
+    }
+
+    #[derive(Default, Debug, Clone, PartialEq, Eq)]
+    pub struct Tarball;
+    impl ApplicationProtocol for Tarball {
+        fn protocol() -> Cow<'static, str> {
+            "tarball".into()
+        }
+
+        fn required(url: &Url) -> bool {
+            !is_tarball_url(url)
+        }
     }
 }
 
