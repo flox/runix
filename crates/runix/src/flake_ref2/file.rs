@@ -16,12 +16,13 @@ pub type FileUrl<Protocol> = WrappedUrl<Protocol>;
 
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/tarball.cc#L287>
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
-#[serde(tag = "file")]
 #[serde(deny_unknown_fields)]
 pub struct FileBasedRef<Protocol: FileProtocol, A: ApplicationProtocol> {
     pub url: WrappedUrl<Protocol>,
 
-    #[serde(skip)]
+    #[serde(rename = "type")]
+    #[serde(bound(deserialize = "Application<A>: Deserialize<'de>"))]
+    #[serde(bound(serialize = "Application<A>: Serialize"))]
     _type: Application<A>,
 
     #[serde(flatten)]
