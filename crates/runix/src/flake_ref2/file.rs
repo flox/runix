@@ -145,7 +145,10 @@ impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource
     }
 
     fn parses(maybe_ref: &str) -> bool {
-        if maybe_ref.starts_with(&format!("{scheme}:", scheme = Self::scheme())) {
+        if maybe_ref.starts_with(&format!(
+            "{scheme_with_application}:",
+            scheme_with_application = Self::scheme()
+        )) {
             return true;
         }
 
