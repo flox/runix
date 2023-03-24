@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use thiserror::Error;
 
-use crate::flake_ref2::indirect::IndirectRef;
-use crate::flake_ref2::FlakeRef;
+use crate::flake_ref::indirect::IndirectRef;
+use crate::flake_ref::FlakeRef;
 
 #[derive(Error, Debug)]
 pub enum RegistryError {}

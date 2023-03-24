@@ -247,7 +247,7 @@ pub enum ParseFileError {
 mod tests {
 
     use super::*;
-    use crate::flake_ref2::tests::{roundtrip, roundtrip_to};
+    use crate::flake_ref::tests::{roundtrip, roundtrip_to};
 
     type FileFileRef = super::FileRef<protocol::File>;
     type HttpFileRef = super::FileRef<protocol::HTTP>;

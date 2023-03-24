@@ -202,7 +202,7 @@ mod tests {
     use std::path::Path;
 
     use super::*;
-    use crate::flake_ref2::tests::{roundtrip, roundtrip_to};
+    use crate::flake_ref::tests::{roundtrip, roundtrip_to};
 
     #[test]
     fn parse_github_simple() {
