@@ -7,7 +7,7 @@ use derive_more::{Display, From};
 use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
 
-use self::file::FileRef;
+use self::file::{FileRef, TarballRef};
 use self::git::GitRef;
 use self::git_service::{service, GitServiceRef};
 use self::indirect::IndirectRef;
@@ -31,12 +31,12 @@ pub trait FlakeRefSource: FromStr + Display {
 #[derive(Serialize, Deserialize, Display, From, Debug, Clone, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum FlakeRef {
-    FileFile(FileRef<protocol::File, file::File>),
-    FileHTTP(FileRef<protocol::HTTP, file::File>),
-    FileHTTPS(FileRef<protocol::HTTPS, file::File>),
-    TarballFile(FileRef<protocol::File, file::Tarball>),
-    TarballHTTP(FileRef<protocol::HTTP, file::Tarball>),
-    TarballHTTPS(FileRef<protocol::HTTPS, file::Tarball>),
+    FileFile(FileRef<protocol::File>),
+    FileHTTP(FileRef<protocol::HTTP>),
+    FileHTTPS(FileRef<protocol::HTTPS>),
+    TarballFile(TarballRef<protocol::File>),
+    TarballHTTP(TarballRef<protocol::HTTP>),
+    TarballHTTPS(TarballRef<protocol::HTTPS>),
     Github(GitServiceRef<service::Github>),
     Gitlab(GitServiceRef<service::Gitlab>),
     Path(PathRef),
@@ -63,14 +63,14 @@ impl FromStr for FlakeRef {
             _ if FileRef::<protocol::HTTPS>::parses(s) => {
                 s.parse::<FileRef<protocol::HTTPS>>()?.into()
             },
-            _ if FileRef::<protocol::File, file::Tarball>::parses(s) => {
-                s.parse::<FileRef<protocol::File, file::Tarball>>()?.into()
+            _ if TarballRef::<protocol::File>::parses(s) => {
+                s.parse::<TarballRef<protocol::File>>()?.into()
             },
-            _ if FileRef::<protocol::HTTP, file::Tarball>::parses(s) => {
-                s.parse::<FileRef<protocol::HTTP, file::Tarball>>()?.into()
+            _ if TarballRef::<protocol::HTTP>::parses(s) => {
+                s.parse::<TarballRef<protocol::HTTP>>()?.into()
             },
-            _ if FileRef::<protocol::HTTPS, file::Tarball>::parses(s) => {
-                s.parse::<FileRef<protocol::HTTPS, file::Tarball>>()?.into()
+            _ if TarballRef::<protocol::HTTPS>::parses(s) => {
+                s.parse::<TarballRef<protocol::HTTPS>>()?.into()
             },
             _ if GitServiceRef::<service::Github>::parses(s) => {
                 s.parse::<GitServiceRef<service::Github>>()?.into()
