@@ -121,7 +121,7 @@ impl<Service: service::GitServiceHost> FromStr for GitServiceRef<Service> {
             .split_once('/')
             .ok_or(ParseGitServiceError::NoRepo)?;
         let (repo, rev_or_ref) = match rest.split_once('/') {
-            Some((repo, rev)) => (repo, Some(rev.to_owned().into())),
+            Some((repo, rev_or_ref)) => (repo, Some(rev_or_ref.to_owned().into())),
             None => (rest, None),
         };
 
