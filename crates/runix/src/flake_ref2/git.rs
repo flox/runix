@@ -7,10 +7,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use url::Url;
 
-use super::lock::Rev;
+use super::lock::{Rev, RevCount};
 use super::protocol::{self, Protocol, WrappedUrl, WrappedUrlParseError};
 use super::FlakeRefSource;
-use crate::flake_ref::RevCount;
 
 pub type GitUrl<Protocol> = WrappedUrl<Protocol>;
 

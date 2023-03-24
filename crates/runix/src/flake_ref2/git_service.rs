@@ -10,7 +10,6 @@ use url::Url;
 use self::service::GitService;
 use super::lock::{LastModified, NarHash, Rev, RevOrRef};
 use super::FlakeRefSource;
-use crate::flake_ref::RepoHost;
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct GitServiceRef<Service> {
@@ -30,7 +29,7 @@ pub struct GitServiceRef<Service> {
 #[serde_with::skip_serializing_none]
 #[serde(deny_unknown_fields)]
 pub struct GitServiceAttributes {
-    pub host: Option<RepoHost>,
+    pub host: Option<String>,
     pub dir: Option<PathBuf>,
 
     #[serde(rename = "ref")]

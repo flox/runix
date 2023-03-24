@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use url::Url;
 
-use super::lock::{LastModified, NarHash, Rev};
+use super::lock::{LastModified, NarHash, Rev, RevCount};
 use super::FlakeRefSource;
 
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/path.cc#L46>
@@ -31,27 +31,6 @@ pub struct PathAttributes {
     pub last_modified: Option<LastModified>,
 
     pub rev: Option<Rev>,
-}
-
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
-#[serde(try_from = "StringOrInt")]
-pub struct RevCount(u64);
-
-#[derive(Debug, Deserialize)]
-enum StringOrInt {
-    String(String),
-    Int(u64),
-}
-
-impl TryFrom<StringOrInt> for RevCount {
-    type Error = <u64 as FromStr>::Err;
-
-    fn try_from(value: StringOrInt) -> Result<Self, Self::Error> {
-        match value {
-            StringOrInt::String(s) => Ok(RevCount(s.parse()?)),
-            StringOrInt::Int(i) => Ok(RevCount(i)),
-        }
-    }
 }
 
 impl FlakeRefSource for PathRef {

@@ -62,3 +62,24 @@ impl FromStr for Rev {
 #[derive(Error, Debug)]
 #[error("Invalid revision hash")]
 pub struct InvalidRev;
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
+#[serde(try_from = "StringOrInt")]
+pub struct RevCount(u64);
+
+#[derive(Debug, Deserialize)]
+enum StringOrInt {
+    String(String),
+    Int(u64),
+}
+
+impl TryFrom<StringOrInt> for RevCount {
+    type Error = <u64 as FromStr>::Err;
+
+    fn try_from(value: StringOrInt) -> Result<Self, Self::Error> {
+        match value {
+            StringOrInt::String(s) => Ok(RevCount(s.parse()?)),
+            StringOrInt::Int(i) => Ok(RevCount(i)),
+        }
+    }
+}
