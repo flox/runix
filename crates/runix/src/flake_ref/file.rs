@@ -230,7 +230,13 @@ impl<Protocol: FileProtocol, App: ApplicationProtocol> FromStr for FileBasedRef<
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url = Url::parse(s)?;
 
-        // fix url
+        // resolve the application part from the url schema.
+        // report missing application if required ( see [ApplicationProtocol::required])
+        // deduce from url
+        // - `app` will be the (implied) application
+        // - `proto` the transport protocol from the url scheme
+        // - `url` the url with application prepended
+        // - `wrapped` the parsed url with guaranteed scheme
         let (app, proto, url, wrapped) = if let Some((app, proto)) = &url.scheme().split_once('+') {
             let wrapped = FileUrl::<Protocol>::from_str(s.trim_start_matches(&format!("{app}+")))?;
 
