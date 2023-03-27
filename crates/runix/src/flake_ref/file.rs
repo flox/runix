@@ -128,7 +128,7 @@ pub mod application {
                 .iter()
                 .any(|ext| name.to_string_lossy().ends_with(ext))
             })
-            .unwrap_or_default();
+            .unwrap_or(false);
 
         is_tarball_url
     }
@@ -185,7 +185,7 @@ impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource
 
         if !Url::parse(maybe_ref)
             .map(|url| Type::required(&url))
-            .unwrap_or_default()
+            .unwrap_or(false)
         {
             return maybe_ref.starts_with(&format!("{scheme}:", scheme = Protocol::scheme()));
         }
