@@ -57,7 +57,38 @@ pub mod application {
     use url::Url;
 
     pub trait ApplicationProtocol: Default {
+        /// Describes the the application name, ie.
+        ///
+        /// Applications are prepended to a url as `<application>+<url>`,
+        /// to denote how the url should be parsed.
+        ///
+        /// ```
+        /// # use runix::flake_ref::file::application::{ApplicationProtocol, File, Tarball};
+        ///
+        /// assert_eq!(Tarball::protocol(), "tarball");
+        /// assert_eq!(File::protocol(), "file");
+        /// ```
         fn protocol() -> Cow<'static, str>;
+
+        /// Determines whether the application has to be provided for a given [Url]
+        /// or can be implied.
+        ///
+        /// # Example
+        ///
+        /// The url <https://github.com/flox/runix/archive/refs/heads/main.tar.gz>
+        /// implies a [Tarball].
+        /// This it is not required to specify the application with `tarball+`.
+        /// If the url is supoosed to be parsed as a [File] instead,
+        /// the `file+` application must be added.
+        ///
+        /// ```
+        /// use runix::flake_ref::file::application::{ApplicationProtocol, File, Tarball};
+        /// use url::Url;
+        /// let url = Url::parse("https://github.com/flox/runix/archive/refs/heads/main.tar.gz").unwrap();
+        ///
+        /// assert!(!Tarball::required(&url)); // application not required to parse [Tarball]
+        /// assert!(File::required(&url)); // application required to parse as [File]
+        /// ```
         fn required(url: &Url) -> bool;
     }
 
