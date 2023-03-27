@@ -259,9 +259,9 @@ mod tests {
 
     #[test]
     fn file_file_roundtrips() {
-        roundtrip::<FileFileRef>("file+file://somewhere/there");
-        roundtrip_to::<FileFileRef>("file://somewhere/there", "file+file://somewhere/there");
-        roundtrip::<FileFileRef>("file+file://somewhere/there?unpack=true");
+        roundtrip::<FileFileRef>("file+file:///somewhere/there");
+        roundtrip_to::<FileFileRef>("file:///somewhere/there", "file+file:///somewhere/there");
+        roundtrip::<FileFileRef>("file+file:///somewhere/there?unpack=true");
     }
 
     #[test]
@@ -280,12 +280,12 @@ mod tests {
 
     #[test]
     fn tarball_file_roundtrips() {
-        roundtrip::<FileTarballRef>("tarball+file://somewhere/there");
+        roundtrip::<FileTarballRef>("tarball+file:///somewhere/there");
         roundtrip_to::<FileTarballRef>(
-            "file://somewhere/there.tar.gz",
-            "tarball+file://somewhere/there.tar.gz",
+            "file:///somewhere/there.tar.gz",
+            "tarball+file:///somewhere/there.tar.gz",
         );
-        roundtrip::<FileTarballRef>("tarball+file://somewhere/there?unpack=true");
+        roundtrip::<FileTarballRef>("tarball+file:///somewhere/there?unpack=true");
     }
 
     #[test]
@@ -310,6 +310,6 @@ mod tests {
 
     #[test]
     fn test_parse_nar_hash() {
-        roundtrip::<FileFileRef>("file+file://somewhere/there?narHash=sha256-MjeRjunqfGTBGU401nxIjs7PC9PZZ1FBCZp%2fbRB3C2M%3D")
+        roundtrip::<FileFileRef>("file+file:///somewhere/there?narHash=sha256-MjeRjunqfGTBGU401nxIjs7PC9PZZ1FBCZp%2FbRB3C2M%3D")
     }
 }
