@@ -64,9 +64,8 @@ impl FromStr for PathRef {
             ));
         }
         let path = Path::new(url.path()).to_path_buf();
-        let attributes: PathAttributes = dbg!(serde_urlencoded::from_str(dbg!(url
-            .query()
-            .unwrap_or_default()))?);
+        let attributes: PathAttributes =
+            serde_urlencoded::from_str(url.query().unwrap_or_default())?;
 
         Ok(PathRef { path, attributes })
     }
