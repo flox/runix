@@ -6,13 +6,11 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use thiserror::Error;
 
-use super::flake_ref::{FlakeRefError, IndirectFlake, ToFlakeRef};
+use crate::flake_ref::indirect::IndirectRef;
+use crate::flake_ref::FlakeRef;
 
 #[derive(Error, Debug)]
-pub enum RegistryError {
-    #[error(transparent)]
-    FlakeRef(#[from] FlakeRefError),
-}
+pub enum RegistryError {}
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Eq)]
 pub struct Registry {
@@ -27,11 +25,12 @@ pub struct Registry {
 }
 
 impl Registry {
-    pub fn set(&mut self, name: impl ToString, to: ToFlakeRef) {
+    pub fn set(&mut self, name: impl ToString, to: FlakeRef) {
         let entry = RegistryEntry {
-            from: FromFlakeRef::Indirect(IndirectFlake {
+            from: IndirectRef {
                 id: name.to_string(),
-            }),
+                attributes: Default::default(),
+            },
             to,
             exact: None,
         };
@@ -55,8 +54,8 @@ impl Default for Version {
 #[skip_serializing_none]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 struct RegistryEntry {
-    from: FromFlakeRef, // TODO merge into single flakeRef type @notgne2?
-    to: ToFlakeRef,
+    from: IndirectRef, // TODO merge into single flakeRef type @notgne2?
+    to: FlakeRef,
     exact: Option<bool>,
 }
 
@@ -76,7 +75,7 @@ impl PartialOrd for RegistryEntry {
 #[serde(tag = "type")]
 #[serde(rename_all = "lowercase")]
 enum FromFlakeRef {
-    Indirect(IndirectFlake),
+    Indirect(IndirectRef),
 }
 
 #[cfg(test)]
