@@ -35,7 +35,7 @@ pub type TarballRef<Protocol> = FileBasedRef<Protocol, application::Tarball>;
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct FileAttributes {
-    #[serde(flatten)]
+    #[serde(rename = "narHash")]
     pub nar_hash: Option<NarHash>,
 
     pub unpack: Option<Unpack>,

@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use derive_more::{Deref, From};
+use derive_more::Deref;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -11,19 +11,9 @@ use super::Timestamp;
 
 static HASH_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("[a-f0-9]{40}").unwrap());
 
-#[derive(Debug, Deserialize, Serialize, Clone, Deref, PartialEq, Eq, From)]
-#[from(forward)]
-pub struct NarHash {
-    #[serde(rename = "narHash")]
-    pub nar_hash: String,
-}
-
-#[derive(Debug, Deserialize, Serialize, Deref, PartialEq, Eq, From, Clone)]
-#[from(forward)]
-pub struct LastModified {
-    #[serde(rename = "lastModified")]
-    pub last_modified: Timestamp,
-}
+/// todo: parse/validate narHash?
+pub type NarHash = String;
+pub type LastModified = Timestamp;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(untagged)]
