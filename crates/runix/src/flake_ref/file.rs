@@ -175,6 +175,16 @@ impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource
         .into()
     }
 
+    /// A [FileBasedRef] has to hold three properties:
+    ///
+    /// 1. It has to be a [Url],
+    ///    we cannot deduce a file from just a path (that would be a [PathRef])
+    /// 2. the schema has to be a supported file protocol, i.e. one of
+    ///    [`file://`, `http://`, `https://`]
+    /// 3. the schema may contain an application, a hint as what the file should be parsed
+    ///    Nix supports tarballs as their own filetype.
+    ///    In some cases this application can be deduced from the url,
+    ///    e.g. by looking at the path and file extension. (See [ApplicationProtocol::required])
     fn parses(maybe_ref: &str) -> bool {
         if maybe_ref.starts_with(&format!(
             "{scheme_with_application}:",
