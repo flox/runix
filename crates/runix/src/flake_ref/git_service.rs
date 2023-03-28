@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use thiserror::Error;
 use url::Url;
 
@@ -11,6 +12,7 @@ use self::service::GitService;
 use super::lock::{LastModified, NarHash, Rev, RevOrRef};
 use super::FlakeRefSource;
 
+#[skip_serializing_none]
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct GitServiceRef<Service> {
     pub owner: String,

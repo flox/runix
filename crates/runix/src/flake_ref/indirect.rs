@@ -11,11 +11,21 @@ use super::FlakeRefSource;
 
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/path.cc#L46>
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, PartialOrd, Ord)]
-#[serde(tag = "indirect")]
 pub struct IndirectRef {
     pub id: String,
+
+    #[serde(rename = "type")]
+    pub _type: Tag,
+
     #[serde(flatten)]
     pub attributes: BTreeMap<String, String>,
+}
+
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, PartialOrd, Ord, Default)]
+pub enum Tag {
+    #[default]
+    #[serde(rename = "indirect")]
+    Indirect,
 }
 
 impl FlakeRefSource for IndirectRef {
@@ -70,7 +80,12 @@ impl FromStr for IndirectRef {
 
         let id = url.path().to_string();
         let attributes = serde_urlencoded::from_str(url.query().unwrap_or_default())?;
-        Ok(IndirectRef { id, attributes })
+        let _type = Tag::Indirect;
+        Ok(IndirectRef {
+            id,
+            attributes,
+            _type,
+        })
     }
 }
 
@@ -87,6 +102,8 @@ pub enum ParseIndirectError {
 #[cfg(test)]
 mod tests {
 
+    use serde_json::json;
+
     use super::*;
     use crate::flake_ref::tests::roundtrip_to;
 
@@ -94,6 +111,7 @@ mod tests {
     #[test]
     fn indirect_to_from_url() {
         let expect = IndirectRef {
+            _type: Tag::Indirect,
             id: "nixpkgs-flox".into(),
             attributes: BTreeMap::default(),
         };
@@ -107,6 +125,7 @@ mod tests {
     #[test]
     fn parses_registry_flakeref() {
         let expected = IndirectRef {
+            _type: Tag::Indirect,
             id: "nixpkgs".to_string(),
             attributes: BTreeMap::default(),
         };
@@ -123,5 +142,48 @@ mod tests {
     #[test]
     fn roundtrip_attributes() {
         roundtrip_to::<IndirectRef>("nixpkgs?ref=master&dir=1", "flake:nixpkgs?dir=1&ref=master");
+    }
+
+    #[test]
+    fn tag_json() {
+        let expected = json!({
+            "type": "indirect",
+            "id": "test",
+        });
+
+        let flakeref = IndirectRef {
+            _type: Tag::Indirect,
+            id: "test".to_string(),
+            attributes: Default::default(),
+        };
+
+        assert_eq!(serde_json::to_value(&flakeref).unwrap(), expected);
+        assert_eq!(
+            serde_json::from_value::<IndirectRef>(expected).unwrap(),
+            flakeref
+        );
+    }
+
+    /// https://github.com/serde-rs/serde/issues/2423  :(
+    #[test]
+    #[ignore]
+    fn xyz() {
+        #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+        #[serde(tag = "x", rename = "y")]
+        pub struct MyStruct {
+            #[serde(flatten)]
+            pub attributes: BTreeMap<String, String>,
+        }
+
+        let expected = json!({ "x": "y", });
+        let my_struct = MyStruct {
+            attributes: Default::default(),
+        };
+
+        assert_eq!(serde_json::to_value(&my_struct).unwrap(), expected);
+        assert_eq!(
+            serde_json::from_value::<MyStruct>(expected).unwrap(),
+            my_struct
+        );
     }
 }

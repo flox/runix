@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use thiserror::Error;
 use url::Url;
 
@@ -19,6 +20,7 @@ pub struct PathRef {
     pub attributes: PathAttributes,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct PathAttributes {
     #[serde(rename = "revCount")]
