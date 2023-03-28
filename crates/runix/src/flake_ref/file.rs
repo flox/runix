@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use derive_more::Deref;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use thiserror::Error;
 use url::Url;
 
@@ -32,6 +33,7 @@ pub struct FileBasedRef<Protocol: FileProtocol, A: ApplicationProtocol> {
 pub type FileRef<Protocol> = FileBasedRef<Protocol, application::File>;
 pub type TarballRef<Protocol> = FileBasedRef<Protocol, application::Tarball>;
 
+#[skip_serializing_none]
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct FileAttributes {

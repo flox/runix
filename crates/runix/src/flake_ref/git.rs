@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use thiserror::Error;
 use url::Url;
 
@@ -15,7 +16,7 @@ pub type GitUrl<Protocol> = WrappedUrl<Protocol>;
 
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/git.cc#L287>
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
-#[serde(tag = "git")]
+#[serde(tag = "type", rename = "git")]
 pub struct GitRef<Protocol: GitProtocol> {
     pub url: GitUrl<Protocol>,
 
@@ -23,7 +24,8 @@ pub struct GitRef<Protocol: GitProtocol> {
     pub attributes: GitAttributes,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
+#[skip_serializing_none]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone, Default)]
 pub struct GitAttributes {
     pub shallow: Option<bool>,
     pub submodules: Option<bool>,
@@ -106,6 +108,8 @@ pub enum ParseGitError {
 #[cfg(test)]
 mod tests {
 
+    use serde_json::json;
+
     use super::*;
 
     static FLAKE_REF: &'_ str = "git+file:///somewhere/on/the/drive?shallow=false&submodules=false&ref=feature%2Fxyz&dir=abc";
@@ -137,5 +141,26 @@ mod tests {
                 .unwrap()
                 .to_string(),
             FLAKE_REF)
+    }
+
+    #[test]
+    fn to_from_json() {
+        let expected = json!({
+            "type": "git",
+            "url": "ssh://git@github.com/flox/runix",
+        });
+        let flakeref = GitRef::<protocol::SSH> {
+            url: "ssh://git@github.com/flox/runix".parse().unwrap(),
+            attributes: Default::default(),
+        };
+
+        assert_eq!(
+            serde_json::to_string(&flakeref).unwrap(),
+            serde_json::to_string(&expected).unwrap()
+        );
+        assert_eq!(
+            serde_json::from_value::<GitRef<protocol::SSH>>(expected).unwrap(),
+            flakeref
+        );
     }
 }

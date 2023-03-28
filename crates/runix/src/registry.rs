@@ -28,6 +28,7 @@ impl Registry {
     pub fn set(&mut self, name: impl ToString, to: FlakeRef) {
         let entry = RegistryEntry {
             from: IndirectRef {
+                _type: Default::default(),
                 id: name.to_string(),
                 attributes: Default::default(),
             },
