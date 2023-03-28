@@ -84,7 +84,7 @@ impl Display for PathRef {
         .unwrap();
 
         url.set_query(
-            serde_urlencoded::to_string(dbg!(&self.attributes))
+            serde_urlencoded::to_string(&self.attributes)
                 .ok()
                 .as_deref(),
         );
