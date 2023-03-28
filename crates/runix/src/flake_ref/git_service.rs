@@ -12,7 +12,6 @@ use self::service::GitService;
 use super::lock::{LastModified, NarHash, Rev, RevOrRef};
 use super::FlakeRefSource;
 
-#[skip_serializing_none]
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct GitServiceRef<Service> {
     pub owner: String,
@@ -27,8 +26,8 @@ pub struct GitServiceRef<Service> {
     _type: GitService<Service>,
 }
 
+#[skip_serializing_none]
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
-#[serde_with::skip_serializing_none]
 #[serde(deny_unknown_fields)]
 pub struct GitServiceAttributes {
     pub host: Option<String>,
