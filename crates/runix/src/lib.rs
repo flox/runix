@@ -203,6 +203,7 @@ use async_trait::async_trait;
 pub mod arguments;
 pub mod command;
 pub mod command_line;
+pub mod flake_matadata;
 pub mod flake_ref;
 pub mod installable;
 pub mod registry;

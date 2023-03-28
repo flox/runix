@@ -111,6 +111,9 @@ impl NixCliCommand for FlakeMetadata {
     const SUBCOMMAND: &'static [&'static str] = &["flake", "metadata"];
 }
 impl JsonCommand for FlakeMetadata {}
+impl TypedCommand for FlakeMetadata {
+    type Output = crate::flake_matadata::FlakeMetadata;
+}
 
 /// `nix develop` Command
 #[derive(Debug, Default, Clone)]
