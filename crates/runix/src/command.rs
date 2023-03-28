@@ -18,6 +18,7 @@ use crate::arguments::{
 };
 use crate::command_line::flag::{Flag, FlagType};
 use crate::command_line::{Group, JsonCommand, NixCliCommand, TypedCommand};
+use crate::flake_ref::FlakeRef;
 use crate::installable::Installable;
 
 /// `nix build` Command
@@ -82,6 +83,36 @@ impl NixCliCommand for FlakeInit {
     const INSTALLABLES: Group<Self, InstallablesArgs> = Some(|d| d.installables.clone());
     const OWN_ARGS: Group<Self, Option<TemplateFlag>> = Some(|d| d.template.clone());
     const SUBCOMMAND: &'static [&'static str] = &["flake", "init"];
+}
+
+/// `nix flake init --template <TEMPLATE>` flag
+#[derive(Deref, Debug, Clone, From)]
+#[from(forward)]
+pub struct FlakeRefArg(FlakeRef);
+impl Flag for FlakeRefArg {
+    const FLAG: &'static str = "";
+    const FLAG_TYPE: FlagType<Self> = FlagType::Custom(|arg| [arg.0.to_string()].to_vec());
+}
+
+/// `nix flame metadata` Command
+#[derive(Debug, Default, Clone)]
+pub struct FlakeMetadata {
+    pub eval: EvaluationArgs,
+    pub flake: FlakeArgs,
+    pub flake_ref: Option<FlakeRefArg>,
+}
+
+impl NixCliCommand for FlakeMetadata {
+    type Own = Option<FlakeRefArg>;
+
+    const EVAL_ARGS: Group<Self, EvaluationArgs> = Some(|d| d.eval.clone());
+    const FLAKE_ARGS: Group<Self, FlakeArgs> = Some(|d| d.flake.clone());
+    const OWN_ARGS: Group<Self, Self::Own> = Some(|d| d.flake_ref.clone());
+    const SUBCOMMAND: &'static [&'static str] = &["flake", "metadata"];
+}
+impl JsonCommand for FlakeMetadata {}
+impl TypedCommand for FlakeMetadata {
+    type Output = crate::flake_matadata::FlakeMetadata;
 }
 
 /// `nix develop` Command
