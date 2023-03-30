@@ -48,6 +48,15 @@ impl Registry {
     }
 }
 
+impl FromIterator<RegistryEntry> for Registry {
+    fn from_iter<T: IntoIterator<Item = RegistryEntry>>(iter: T) -> Self {
+        Self {
+            version: Version::default(),
+            flakes: BTreeSet::from_iter(iter),
+        }
+    }
+}
+
 /// TODO: use https://github.com/dtolnay/serde-repr?
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 struct Version(u8);
