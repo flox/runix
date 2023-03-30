@@ -41,6 +41,20 @@ impl Registry {
     #[allow(unused)]
     /// Todo: more functions such as remove, get, etc
     pub fn remove(&mut self, _name: impl ToString) {}
+
+    /// Iterate over the entries in the registry
+    pub fn entries(&self) -> impl Iterator<Item = &RegistryEntry> {
+        self.flakes.iter()
+    }
+}
+
+impl FromIterator<RegistryEntry> for Registry {
+    fn from_iter<T: IntoIterator<Item = RegistryEntry>>(iter: T) -> Self {
+        Self {
+            version: Version::default(),
+            flakes: BTreeSet::from_iter(iter),
+        }
+    }
 }
 
 /// TODO: use https://github.com/dtolnay/serde-repr?
@@ -54,10 +68,10 @@ impl Default for Version {
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-struct RegistryEntry {
-    from: IndirectRef, // TODO merge into single flakeRef type @notgne2?
-    to: FlakeRef,
-    exact: Option<bool>,
+pub struct RegistryEntry {
+    pub from: IndirectRef, // TODO merge into single flakeRef type @notgne2?
+    pub to: FlakeRef,
+    pub exact: Option<bool>,
 }
 
 impl Ord for RegistryEntry {
