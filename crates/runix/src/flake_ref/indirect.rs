@@ -15,7 +15,7 @@ pub struct IndirectRef {
     pub id: String,
 
     #[serde(rename = "type")]
-    pub _type: Tag,
+    _type: Tag,
 
     #[serde(flatten)]
     pub attributes: BTreeMap<String, String>,
@@ -26,6 +26,16 @@ pub enum Tag {
     #[default]
     #[serde(rename = "indirect")]
     Indirect,
+}
+
+impl IndirectRef {
+    pub fn new(id: String, attributes: BTreeMap<String, String>) -> Self {
+        Self {
+            id,
+            _type: Tag::Indirect,
+            attributes,
+        }
+    }
 }
 
 impl FlakeRefSource for IndirectRef {

@@ -50,13 +50,19 @@ impl GitProtocol for protocol::SSH {}
 impl GitProtocol for protocol::HTTP {}
 impl GitProtocol for protocol::HTTPS {}
 
-impl<Protcol: GitProtocol> FlakeRefSource for GitRef<Protcol> {
-    fn scheme() -> Cow<'static, str> {
-        format!("git+{inner}", inner = Protcol::scheme()).into()
+impl<Protocol: GitProtocol> GitRef<Protocol> {
+    pub fn new(url: GitUrl<Protocol>, attributes: GitAttributes) -> Self {
+        Self { url, attributes }
     }
 }
 
-impl<Protcol: GitProtocol> Display for GitRef<Protcol> {
+impl<Protocol: GitProtocol> FlakeRefSource for GitRef<Protocol> {
+    fn scheme() -> Cow<'static, str> {
+        format!("git+{inner}", inner = Protocol::scheme()).into()
+    }
+}
+
+impl<Protocol: GitProtocol> Display for GitRef<Protocol> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut url = Url::parse(&format!("git+{url}", url = self.url)).unwrap();
         url.set_query(
@@ -69,7 +75,7 @@ impl<Protcol: GitProtocol> Display for GitRef<Protcol> {
     }
 }
 
-impl<Protcol: GitProtocol> FromStr for GitRef<Protcol> {
+impl<Protocol: GitProtocol> FromStr for GitRef<Protocol> {
     type Err = ParseGitError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -85,7 +91,7 @@ impl<Protcol: GitProtocol> FromStr for GitRef<Protcol> {
         let attributes: GitAttributes =
             serde_urlencoded::from_str(url.query().unwrap_or_default())?;
 
-        let url = GitUrl::<Protcol>::from_str(s.trim_start_matches("git+"))?;
+        let url = GitUrl::<Protocol>::from_str(s.trim_start_matches("git+"))?;
 
         Ok(GitRef { url, attributes })
     }
