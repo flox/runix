@@ -390,6 +390,8 @@ impl NixBackend for NixCommandLine {}
 pub enum NixCommandLineRunError {
     #[error("An error orrured in CommandLine backend: {0}")]
     Backend(#[from] NixCommandLineError),
+    #[error("Nix call unsuccessful: [{0}]")]
+    Exit(ExitStatus),
 }
 
 #[async_trait]
@@ -404,9 +406,14 @@ where
         backend: &NixCommandLine,
         nix_args: &NixArgs,
     ) -> Result<(), NixCommandLineRunError> {
-        backend
+        let exit_status = backend
             .run_command::<Passthru, _, _>(self, nix_args, false)
             .await?;
+
+        if !exit_status.success() {
+            Err(NixCommandLineRunError::Exit(exit_status))?
+        }
+
         Ok(())
     }
 }
