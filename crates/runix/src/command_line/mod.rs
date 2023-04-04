@@ -13,10 +13,8 @@ use log::{debug, log};
 use serde::Deserialize;
 use serde_json::Value;
 use thiserror::Error;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use tokio_stream::wrappers::LinesStream;
-use tokio_stream::StreamExt;
+
 
 use crate::arguments::common::NixCommonArgs;
 use crate::arguments::config::NixConfigArgs;
@@ -130,8 +128,8 @@ trait CommandMode {
 pub enum NixCommandLineCollectError {
     #[error(transparent)]
     CommandLine(#[from] NixCommandLineError),
-    #[error("Nix failed with: [exit code {0}]\n{1}")]
-    NixError(i32, String),
+    #[error("Nix failed with: [{0}]")]
+    NixError(ExitStatus),
 }
 
 /// Implementation of a command execution that collects stdout of a process
@@ -150,37 +148,15 @@ impl CommandMode for Collect {
 
         let command = command
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stderr(Stdio::inherit())
             .stdin(Stdio::inherit());
 
-        let mut child = command.spawn().map_err(NixCommandLineError::Run)?;
+        let child = command.spawn().map_err(NixCommandLineError::Run)?;
 
-        let child_stderr_stream = LinesStream::new(
-            BufReader::new(
-                child
-                    .stderr
-                    .take()
-                    .expect("Process should be connected to piped stderr"),
-            )
-            .lines(),
-        );
-
-        let stderr = child_stderr_stream.fold(String::new(), |buf, l| {
-            let l = l.expect("Stderr is expected to emit lines");
-            debug!("{}", &l);
-            buf + &l + "\n"
-        });
-
-        let (stderr, output) = tokio::join!(stderr, child.wait_with_output());
-
-        let mut output = output.map_err(NixCommandLineError::Run)?;
-        output.stderr = stderr.into_bytes();
+        let output = child.wait_with_output().await.map_err(NixCommandLineError::Run)?;
 
         if !output.status.success() {
-            return Err(NixCommandLineCollectError::NixError(
-                output.status.code().unwrap_or(-1),
-                String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
+            return Err(NixCommandLineCollectError::NixError(output.status));
         }
 
         Ok(output)
