@@ -27,7 +27,7 @@ pub struct GitServiceRef<Service> {
 }
 
 #[skip_serializing_none]
-#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Default)]
 #[serde(deny_unknown_fields)]
 pub struct GitServiceAttributes {
     pub host: Option<String>,
@@ -97,6 +97,17 @@ pub mod service {
     impl GitServiceHost for Gitlab {
         fn scheme() -> Cow<'static, str> {
             "gitlab".into()
+        }
+    }
+}
+
+impl<Service: Default> GitServiceRef<Service> {
+    pub fn new(owner: String, repo: String, attributes: GitServiceAttributes) -> Self {
+        Self {
+            owner,
+            repo,
+            attributes,
+            _type: Default::default(),
         }
     }
 }

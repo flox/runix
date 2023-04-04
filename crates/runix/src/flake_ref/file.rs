@@ -34,7 +34,7 @@ pub type FileRef<Protocol> = FileBasedRef<Protocol, application::File>;
 pub type TarballRef<Protocol> = FileBasedRef<Protocol, application::Tarball>;
 
 #[skip_serializing_none]
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct FileAttributes {
     #[serde(rename = "narHash")]
@@ -206,6 +206,16 @@ impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource
     }
 }
 
+impl<Protocol: FileProtocol, App: ApplicationProtocol> FileBasedRef<Protocol, App> {
+    pub fn new(url: WrappedUrl<Protocol>, attributes: FileAttributes) -> Self {
+        Self {
+            url,
+            attributes,
+            _type: Default::default(),
+        }
+    }
+}
+
 impl<Protocol: FileProtocol, App: ApplicationProtocol> Display for FileBasedRef<Protocol, App> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut url: Url = Url::parse(&format!(
@@ -308,31 +318,31 @@ mod tests {
 
     #[test]
     fn file_file_roundtrips() {
-        roundtrip::<FileFileRef>("file+file:///somewhere/there");
-        roundtrip_to::<FileFileRef>("file:///somewhere/there", "file+file:///somewhere/there");
+        roundtrip::<FileFileRef>("file:///somewhere/there");
+        roundtrip_to::<FileFileRef>("file+file:///somewhere/there", "file:///somewhere/there");
         roundtrip::<FileFileRef>("file+file:///somewhere/there?unpack=true");
     }
 
     #[test]
     fn file_http_roundtrips() {
-        roundtrip::<HttpFileRef>("file+http://somewhere/there");
-        roundtrip_to::<HttpFileRef>("http://somewhere/there", "file+http://somewhere/there");
-        roundtrip::<HttpFileRef>("file+http://somewhere/there?unpack=true");
+        roundtrip::<HttpFileRef>("http://somewhere/there");
+        roundtrip_to::<HttpFileRef>("file+http://somewhere/there", "http://somewhere/there");
+        roundtrip::<HttpFileRef>("http://somewhere/there?unpack=true");
     }
 
     #[test]
     fn file_https_roundtrips() {
-        roundtrip::<HttpsFileRef>("file+https://somewhere/there");
-        roundtrip_to::<HttpsFileRef>("https://somewhere/there", "file+https://somewhere/there");
-        roundtrip::<HttpsFileRef>("file+https://somewhere/there?unpack=true");
+        roundtrip::<HttpsFileRef>("https://somewhere/there");
+        roundtrip_to::<HttpsFileRef>("file+https://somewhere/there", "https://somewhere/there");
+        roundtrip::<HttpsFileRef>("https://somewhere/there?unpack=true");
     }
 
     #[test]
     fn tarball_file_roundtrips() {
         roundtrip::<FileTarballRef>("tarball+file:///somewhere/there");
         roundtrip_to::<FileTarballRef>(
-            "file:///somewhere/there.tar.gz",
             "tarball+file:///somewhere/there.tar.gz",
+            "file:///somewhere/there.tar.gz",
         );
         roundtrip::<FileTarballRef>("tarball+file:///somewhere/there?unpack=true");
     }
@@ -341,8 +351,8 @@ mod tests {
     fn tarball_http_roundtrips() {
         roundtrip::<HttpTarballRef>("tarball+http://somewhere/there");
         roundtrip_to::<HttpTarballRef>(
-            "http://somewhere/there.tar.gz",
             "tarball+http://somewhere/there.tar.gz",
+            "http://somewhere/there.tar.gz",
         );
         roundtrip::<HttpTarballRef>("tarball+http://somewhere/there?unpack=true");
     }
@@ -351,8 +361,8 @@ mod tests {
     fn tarball_https_roundtrips() {
         roundtrip::<HttpsTarballRef>("tarball+https://somewhere/there");
         roundtrip_to::<HttpsTarballRef>(
-            "https://somewhere/there.tar.gz",
             "tarball+https://somewhere/there.tar.gz",
+            "https://somewhere/there.tar.gz",
         );
         roundtrip::<HttpsTarballRef>("tarball+https://somewhere/there?unpack=true");
     }

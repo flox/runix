@@ -21,7 +21,7 @@ pub struct PathRef {
 }
 
 #[skip_serializing_none]
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
+#[derive(Default, Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct PathAttributes {
     #[serde(rename = "revCount")]
     pub rev_count: Option<RevCount>,
