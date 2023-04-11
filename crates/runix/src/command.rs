@@ -37,6 +37,7 @@ impl NixCliCommand for Build {
     const EVAL_ARGS: Group<Self, EvaluationArgs> = Some(|d| d.eval.clone());
     const FLAKE_ARGS: Group<Self, FlakeArgs> = Some(|d| d.flake.clone());
     const INSTALLABLES: Group<Self, InstallablesArgs> = Some(|d| d.installables.clone());
+    const OWN_ARGS: Group<Self, Self::Own> = Some(|d| d.build.clone());
     const SOURCE_ARGS: Group<Self, SourceArgs> = Some(|d| d.source.clone());
     const SUBCOMMAND: &'static [&'static str] = &["build"];
 }
