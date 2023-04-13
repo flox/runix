@@ -5,7 +5,7 @@ use runix_derive::ToArgs;
 
 use crate::command_line::flag::{Flag, FlagType};
 use crate::command_line::ToArgs;
-use crate::installable::FlakeRef;
+use crate::flake_ref::FlakeRef;
 
 /// Flake related arguments
 /// Corresponding to the arguments defined in
@@ -19,7 +19,7 @@ pub struct FlakeArgs {
 /// Tuple like override inputs flag
 #[derive(Clone, Debug, From, Constructor)]
 pub struct OverrideInput {
-    pub from: FlakeRef,
+    pub from: String,
     pub to: FlakeRef,
 }
 impl Flag for OverrideInput {
@@ -28,7 +28,7 @@ impl Flag for OverrideInput {
 }
 impl OverrideInput {
     fn args(&self) -> Vec<String> {
-        vec![self.from.clone(), self.to.clone()]
+        vec![self.from.to_string(), self.to.to_string()]
     }
 }
 

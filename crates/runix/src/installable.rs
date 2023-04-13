@@ -1,45 +1,43 @@
 //! A much simplified installable representation
 
-use derive_more::Constructor;
+use std::fmt::Display;
+use std::str::FromStr;
 
-/// A much simplified installable representation
-#[derive(Debug, Clone, Constructor)]
+use thiserror::Error;
+
+use crate::flake_ref::{FlakeRef, ParseFlakeRefError};
+
+/// A simplified installable representation
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Installable {
     pub flakeref: FlakeRef,
-    pub attr_path: String,
+    pub attr_path: Vec<String>,
 }
 
-impl Installable {
-    pub fn to_nix(&self) -> String {
-        format!("{}#{}", self.flakeref, self.attr_path)
-    }
-}
+impl FromStr for Installable {
+    type Err = ParseInstallableError;
 
-impl From<String> for Installable {
-    fn from(input: String) -> Self {
-        let mut split = input.splitn(2, '#');
-
-        match (split.next(), split.next()) {
-            (Some(flakeref), Some(attr_path)) => Installable {
-                flakeref: flakeref.to_owned(),
-                attr_path: attr_path.to_owned(),
-            },
-            (Some(attr_path), None) => Installable {
-                flakeref: ".".to_owned(),
-                attr_path: attr_path.to_owned(),
-            },
-            _ => unreachable!(),
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.split_once('#') {
+            Some((flakeref, attr_path)) => Ok(Installable {
+                flakeref: flakeref.parse()?,
+                attr_path: attr_path.split('.').map(String::from).collect(),
+            }),
+            None => Err(ParseInstallableError::MissingAttrPath),
         }
     }
 }
 
-impl ToString for Installable {
-    fn to_string(&self) -> String {
-        self.to_nix()
+impl Display for Installable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}#{}", self.flakeref, self.attr_path.join("."))
     }
 }
 
-/// A much simplified FlakeRef representation
-///
-/// to be replaced by the checked implementation in [crate::flake_ref]
-pub type FlakeRef = String;
+#[derive(Debug, Error)]
+pub enum ParseInstallableError {
+    #[error(transparent)]
+    ParseFlakeRef(#[from] ParseFlakeRefError),
+    #[error("Installable is missing an attribute path")]
+    MissingAttrPath,
+}
