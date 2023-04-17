@@ -9,10 +9,11 @@ use thiserror::Error;
 
 use crate::flake_ref::{FlakeRef, ParseFlakeRefError};
 
-/// regex describing valid characters for attributes
-/// derived from <https://github.com/flox/nix/blob/ysndr/disable_attrpath_resolution/src/libutil/url-parts.hh#L21>
+/// regex listing valid characters for attributes
+///
+/// derived from https://github.com/NixOS/nix/blob/master/src/libutil/url-parts.hh
 static VALID_ATTRIBUTE: Lazy<Regex> =
-    Lazy::new(|| Regex::new("^([a-zA-Z0-9-._~!$&'()*+,;=:@?/ ]*)$").unwrap());
+    Lazy::new(|| Regex::new("^([a-zA-Z0-9-._~!$&'()*+,;=:%@?/ ]*)$").unwrap());
 
 /// A simplified installable representation
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,6 +63,8 @@ impl FromStr for AttrPath {
     type Err = ParseInstallableError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = percent_encoding::percent_decode_str(s).decode_utf8()?;
+
         let mut attributes = AttrPath::default();
         let mut cur = String::new();
 
@@ -79,9 +82,7 @@ impl FromStr for AttrPath {
         }
 
         if let Some(start) = start_quote {
-            return Err(ParseInstallableError::UnclosedQuote(
-                s.to_string().split_off(start),
-            ));
+            return Err(ParseInstallableError::UnclosedQuote(s[start..].to_string()));
         }
 
         if !cur.is_empty() {
@@ -93,11 +94,18 @@ impl FromStr for AttrPath {
 
 impl Display for AttrPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some((first, rest)) = self.0.split_first() {
-            write!(f, "{first}")?;
-            for attr in rest {
-                write!(f, ".{attr}")?;
+        for (n, attr) in self.0.iter().enumerate() {
+            if n > 0 {
+                write!(f, ".")?;
             }
+            write!(
+                f,
+                "{}",
+                percent_encoding::utf8_percent_encode(
+                    &attr.to_string(),
+                    percent_encoding::CONTROLS
+                )
+            )?;
         }
         Ok(())
     }
@@ -183,10 +191,9 @@ pub enum ParseInstallableError {
     ParseFlakeRef(#[from] ParseFlakeRefError),
     #[error("Installable is missing an attribute path")]
     MissingAttrPath,
-    #[error(
-        "Missing closing quote in selection path: '
-    {0}'"
-    )]
+    #[error("Invalid attrpath encoding: {0}")]
+    FragmentEncoding(#[from] std::str::Utf8Error),
+    #[error("Missing closing quote in selection path: '{0}'")]
     UnclosedQuote(String),
     #[error("Invalid attribute '{0}'")]
     InvalidAttr(String),
