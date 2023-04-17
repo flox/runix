@@ -35,6 +35,12 @@ pub struct PathAttributes {
     pub rev: Option<Rev>,
 }
 
+impl PathRef {
+    pub fn new(path: PathBuf, attributes: PathAttributes) -> Self {
+        Self { path, attributes }
+    }
+}
+
 impl FlakeRefSource for PathRef {
     fn scheme() -> Cow<'static, str> {
         "path".into()
