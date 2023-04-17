@@ -133,7 +133,6 @@ impl FromStr for Attribute {
     type Err = ParseInstallableError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        dbg!(s);
         if !(VALID_ATTRIBUTE.is_match(s)) {
             Err(ParseInstallableError::InvalidAttr(s.to_string()))?;
         }
@@ -199,7 +198,7 @@ mod tests {
 
     #[test]
     fn attr_path_from_str() {
-        "a".parse::<AttrPath>().expect("should single attribute");
+        "a".parse::<AttrPath>().expect("should parse single attribute");
         "a.b.c"
             .parse::<AttrPath>()
             .expect("should parse nested path");
@@ -218,10 +217,10 @@ mod tests {
             .expect_err("should not parse with interpolation");
         "a.\"${\"asdf\"}\".c"
             .parse::<AttrPath>()
-            .expect_err("should parse with interpolation that interpolates a string");
+            .expect_err("should not parse with interpolation that interpolates a string");
         "\"${asdf}\".c"
             .parse::<AttrPath>()
-            .expect_err("should parse with interpolation in the front");
+            .expect_err("should not parse with interpolation in the front");
         "x.${asdf}.c"
             .parse::<AttrPath>()
             .expect_err("should not parse with dynamic element");
@@ -244,7 +243,7 @@ mod tests {
         AttrPath::try_from(["a", "b", "c"]).expect("should parse nested path");
         AttrPath::try_from(["a", "${asdf}", "c"]).expect_err("should not parse with interpolation");
         AttrPath::try_from(["\"${asdf}\"", ".c"])
-            .expect_err("should parse with interpolation in the front");
+            .expect_err("should not parse with interpolation in the front");
         AttrPath::try_from(["x.${asdf}", "c"]).expect_err("should not parse with dynamic element");
 
         dbg!(AttrPath::try_from(["a", "b", "c"])
