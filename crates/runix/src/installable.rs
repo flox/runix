@@ -3,6 +3,7 @@
 use std::fmt::Display;
 use std::str::FromStr;
 
+use derive_more::{AsRef, IntoIterator};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use thiserror::Error;
@@ -38,7 +39,7 @@ pub struct Installable {
 /// AttrPath::try_from(["abc", "xyz"]).expect("Parses from array");
 /// AttrPath::try_from(&*vec!["abc", "xyz"]).expect("Parses from vec");
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, IntoIterator)]
 pub struct AttrPath(Vec<Attribute>);
 
 impl AttrPath {
@@ -49,13 +50,24 @@ impl AttrPath {
     }
 
     /// get an iterator over all components of the attrpath
-    pub fn components(&self) -> impl Iterator<Item = &Attribute> {
+    pub fn iter(&self) -> impl Iterator<Item = &Attribute> {
         self.0.iter()
+    }
+
+    /// get an iterator over all components of the attrpath and allow modification
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Attribute> {
+        self.0.iter_mut()
     }
 
     /// determine whether the attrpath is empty
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+}
+
+impl FromIterator<Attribute> for AttrPath {
+    fn from_iter<T: IntoIterator<Item = Attribute>>(iter: T) -> Self {
+        Self(iter.into_iter().collect())
     }
 }
 
@@ -94,7 +106,7 @@ impl FromStr for AttrPath {
 
 impl Display for AttrPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (n, attr) in self.0.iter().enumerate() {
+        for (n, attr) in self.iter().enumerate() {
             if n > 0 {
                 write!(f, ".")?;
             }
@@ -134,7 +146,7 @@ impl<A: AsRef<str>, const N: usize> TryFrom<[A; N]> for AttrPath {
 /// A validated attribute
 ///
 /// Component of an attrpath
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, AsRef)]
 pub struct Attribute(String);
 
 impl FromStr for Attribute {
