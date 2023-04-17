@@ -74,6 +74,12 @@ impl FromIterator<Attribute> for AttrPath {
     }
 }
 
+impl<'a> FromIterator<&'a Attribute> for AttrPath {
+    fn from_iter<T: IntoIterator<Item = &'a Attribute>>(iter: T) -> Self {
+        Self(iter.into_iter().cloned().collect())
+    }
+}
+
 impl FromStr for AttrPath {
     type Err = ParseInstallableError;
 
