@@ -44,6 +44,9 @@ pub struct AttrPath(Vec<Attribute>);
 
 impl AttrPath {
     /// Add another component to the end of the attrpath
+    ///
+    /// Unlike parsing an attrpath from string,
+    /// this will not perform any percent decoding
     pub fn push_attr(&mut self, attr: &str) -> Result<&mut Self, <Attribute as FromStr>::Err> {
         self.0.push(attr.parse::<Attribute>()?);
         Ok(self)
@@ -74,6 +77,9 @@ impl FromIterator<Attribute> for AttrPath {
 impl FromStr for AttrPath {
     type Err = ParseInstallableError;
 
+    /// parse attr path string
+    ///
+    /// **Note**: percent decodes the input
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = percent_encoding::percent_decode_str(s).decode_utf8()?;
 
@@ -105,6 +111,9 @@ impl FromStr for AttrPath {
 }
 
 impl Display for AttrPath {
+    /// formats attr path string
+    ///
+    /// **Note**: percent encodes the output
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (n, attr) in self.iter().enumerate() {
             if n > 0 {
