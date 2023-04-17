@@ -215,66 +215,56 @@ pub enum ParseInstallableError {
 mod tests {
     use super::*;
 
+    fn assert_parse_as(input: &str, expected: &str, description: &str) {
+        let output = input.parse::<AttrPath>().expect(description);
+        assert_eq!(output.to_string(), expected);
+    }
+
+    fn assert_parse(input: &str, description: &str) {
+        let output = input.parse::<AttrPath>().expect(description);
+        assert_eq!(output.to_string(), input);
+    }
+
+    fn assert_parse_compontents<'a>(
+        components: impl AsRef<[&'a str]>,
+        expect: &str,
+        description: &str,
+    ) {
+        let output = AttrPath::try_from(components.as_ref()).expect(description);
+        assert_eq!(output.to_string(), expect);
+    }
+
+    fn assert_fail(input: &str, description: &str) {
+        input
+            .parse::<AttrPath>()
+            .expect_err(&format!("({input}) was expected to fail: {description}"));
+    }
+
     #[test]
     fn attr_path_from_str() {
-        "a".parse::<AttrPath>().expect("should parse single attribute");
-        "a.b.c"
-            .parse::<AttrPath>()
-            .expect("should parse nested path");
-        "\"a\""
-            .parse::<AttrPath>()
-            .expect("should parse quoted single");
+        assert_parse("a", "parse single attribute");
+        assert_parse("a.b.c", "parse nested path");
+        assert_parse_as("\"a\"", "a", "parse quoted single");
+        assert_parse("''a''", "parse '' quoted single");
+        assert_parse("2", "parse number");
+        assert_parse("\"a.b\"", "parse quoted dot");
 
-        "''a''"
-            .parse::<AttrPath>()
-            .expect("should parse '' quoted single");
-        "\"${abc}\""
-            .parse::<AttrPath>()
-            .expect_err("should not parse just interpolated");
-        "a.\"${asdf}\".c"
-            .parse::<AttrPath>()
-            .expect_err("should not parse with interpolation");
-        "a.\"${\"asdf\"}\".c"
-            .parse::<AttrPath>()
-            .expect_err("should not parse with interpolation that interpolates a string");
-        "\"${asdf}\".c"
-            .parse::<AttrPath>()
-            .expect_err("should not parse with interpolation in the front");
-        "x.${asdf}.c"
-            .parse::<AttrPath>()
-            .expect_err("should not parse with dynamic element");
-
-        "x.\"open.no.close"
-            .parse::<AttrPath>()
-            .expect_err("should detect unclosed");
-
-        "2".parse::<AttrPath>().expect("should parse number");
-        "\"2\""
-            .parse::<AttrPath>()
-            .expect("should parse quoted number");
+        assert_fail("\"${abc}\"", "interpolated");
+        assert_fail("a.\"${asdf}\".c", "interpolated inside");
+        assert_fail("a.${asdf}.c", "interpolated inside no quotes");
+        assert_fail("x.\"open.no.close", "missing quote");
     }
 
     #[test]
     fn attr_path_from_list() {
-        AttrPath::try_from(["a"]).expect("should parse single attribute");
-        AttrPath::try_from([""]).expect("should parse single attribute");
-        AttrPath::try_from(["a.b"]).expect("should parse quoted single attribute");
-        AttrPath::try_from(["a", "b", "c"]).expect("should parse nested path");
+        assert_parse_compontents(["a"], "a", "parse single attribute");
+        assert_parse_compontents([""], "", "parse empty");
+        assert_parse_compontents(["a", "b", "c"], "a.b.c", "parse nested path");
+        assert_parse_compontents(["a.b"], "\"a.b\"", "should parse quoted single attribute");
+
         AttrPath::try_from(["a", "${asdf}", "c"]).expect_err("should not parse with interpolation");
         AttrPath::try_from(["\"${asdf}\"", ".c"])
             .expect_err("should not parse with interpolation in the front");
         AttrPath::try_from(["x.${asdf}", "c"]).expect_err("should not parse with dynamic element");
-
-        dbg!(AttrPath::try_from(["a", "b", "c"])
-            .unwrap()
-            .components()
-            .collect::<Vec<_>>());
-
-        println!("{}", AttrPath::try_from(["a", "b", "c"]).unwrap());
-
-        println!(
-            "{}",
-            AttrPath::try_from(["a(.)"]).expect("should parse single attribute")
-        );
     }
 }
