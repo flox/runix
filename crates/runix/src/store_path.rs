@@ -5,8 +5,9 @@ use std::str::FromStr;
 use once_cell::sync::Lazy;
 use thiserror::Error;
 
+/// Respect [NIX_STORE_DIR](https://nixos.org/manual/nix/stable/command-ref/env-common.html#env-NIX_STORE_DIR)
 static STORE_PREFIX: Lazy<&str> =
-    Lazy::new(|| option_env!("NIX_STORE_PATH").unwrap_or("/nix/store"));
+    Lazy::new(|| option_env!("NIX_STORE_DIR").unwrap_or("/nix/store"));
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct StorePath(PathBuf);
