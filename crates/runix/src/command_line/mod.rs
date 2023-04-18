@@ -15,7 +15,6 @@ use serde_json::Value;
 use thiserror::Error;
 use tokio::process::Command;
 
-
 use crate::arguments::common::NixCommonArgs;
 use crate::arguments::config::NixConfigArgs;
 use crate::arguments::eval::EvaluationArgs;
@@ -153,7 +152,10 @@ impl CommandMode for Collect {
 
         let child = command.spawn().map_err(NixCommandLineError::Run)?;
 
-        let output = child.wait_with_output().await.map_err(NixCommandLineError::Run)?;
+        let output = child
+            .wait_with_output()
+            .await
+            .map_err(NixCommandLineError::Run)?;
 
         if !output.status.success() {
             return Err(NixCommandLineCollectError::NixError(output.status));
