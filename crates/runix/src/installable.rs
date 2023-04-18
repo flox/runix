@@ -188,6 +188,24 @@ impl Display for Attribute {
 impl FromStr for Installable {
     type Err = ParseInstallableError;
 
+    /// Parsing an installable string
+    ///
+    /// based on nix's implementation with some adaptions.
+    /// For reference nix "algorithm" is:
+    ///
+    /// 1. (impurely) turn a given string into a **url**
+    ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libexpr/flake/flakeref.cc#L72>
+    /// 2. completely circumventing the flakeref parsing for urls without scheme
+    ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libexpr/flake/flakeref.cc#L98-L99>
+    ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libexpr/flake/flakeref.cc#L112>
+    /// 3. split of the url fragment and validate with regex
+    ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libutil/url.cc>
+    /// 4. then resolve the attrpath from the fragment
+    ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libexpr/attr-path.cc#L9-L32>
+    ///
+    /// In this implementation we split of the "fragment" part,
+    /// before parsing the left hand side as a flakeref,
+    /// in order to separate the parsing of the components.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.split_once('#') {
             Some((flakeref, attr_path)) => Ok(Installable {
@@ -196,7 +214,7 @@ impl FromStr for Installable {
             }),
             None => Ok(Installable {
                 flakeref: s.parse()?,
-                attr_path: "".parse()?,
+                attr_path: AttrPath::default(),
             }),
         }
     }
