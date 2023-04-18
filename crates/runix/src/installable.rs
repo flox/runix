@@ -13,6 +13,12 @@ use crate::flake_ref::{FlakeRef, ParseFlakeRefError};
 /// regex listing valid characters for attributes
 ///
 /// derived from https://github.com/NixOS/nix/blob/master/src/libutil/url-parts.hh
+///
+/// A valid attribute is almost any valid (string) attribute name in the nix language.
+/// As most characters can be used in an attribute name as long as its quoted,
+/// more than just alphanumerics can be used.
+/// However, `{}` and `[]` are disallowed, the former, presumably due to `${...}`
+/// being used as string substitution in the nix language.
 static VALID_ATTRIBUTE: Lazy<Regex> =
     Lazy::new(|| Regex::new("^([a-zA-Z0-9-._~!$&'()*+,;=:%@?/ ]*)$").unwrap());
 
