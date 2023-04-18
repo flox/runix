@@ -240,7 +240,7 @@ mod tests {
         assert_eq!(output.to_string(), input);
     }
 
-    fn assert_parse_compontents<'a>(
+    fn assert_parse_components<'a>(
         components: impl AsRef<[&'a str]>,
         expect: &str,
         description: &str,
@@ -272,10 +272,10 @@ mod tests {
 
     #[test]
     fn attr_path_from_list() {
-        assert_parse_compontents(["a"], "a", "parse single attribute");
-        assert_parse_compontents([""], "", "parse empty");
-        assert_parse_compontents(["a", "b", "c"], "a.b.c", "parse nested path");
-        assert_parse_compontents(["a.b"], "\"a.b\"", "should parse quoted single attribute");
+        assert_parse_components(["a"], "a", "parse single attribute");
+        assert_parse_components([""], "", "parse empty");
+        assert_parse_components(["a", "b", "c"], "a.b.c", "parse nested path");
+        assert_parse_components(["a.b"], "\"a.b\"", "should parse quoted single attribute");
 
         AttrPath::try_from(["a", "${asdf}", "c"]).expect_err("should not parse with interpolation");
         AttrPath::try_from(["\"${asdf}\"", ".c"])
