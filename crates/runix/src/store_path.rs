@@ -6,8 +6,12 @@ use once_cell::sync::Lazy;
 use thiserror::Error;
 
 /// Respect [NIX_STORE_DIR](https://nixos.org/manual/nix/stable/command-ref/env-common.html#env-NIX_STORE_DIR)
-static STORE_PREFIX: Lazy<&str> =
-    Lazy::new(|| option_env!("NIX_STORE_DIR").unwrap_or("/nix/store"));
+static STORE_PREFIX: Lazy<String> = Lazy::new(|| {
+    std::env::var("NIX_STORE_DIR")
+        .ok()
+        .or_else(|| option_env!("NIX_STORE_DIR").map(String::from))
+        .unwrap_or_else(|| "/nix/store".to_string())
+});
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct StorePath(PathBuf);
@@ -18,12 +22,12 @@ impl TryFrom<PathBuf> for StorePath {
     fn try_from(value: PathBuf) -> Result<Self, Self::Error> {
         let path = value
             .as_path()
-            .strip_prefix(*STORE_PREFIX)
+            .strip_prefix(STORE_PREFIX.as_str())
             .map_err(|_| StorePathError::NotAStorePath(value.clone()))?;
 
         path.components()
             .next()
-            .map(|store_path| Path::new(*STORE_PREFIX).join(store_path))
+            .map(|store_path| Path::new(STORE_PREFIX.as_str()).join(store_path))
             .map(StorePath)
             .ok_or(StorePathError::NotAStorePath(value))
     }
