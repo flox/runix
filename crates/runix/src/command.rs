@@ -113,7 +113,7 @@ impl NixCliCommand for FlakeMetadata {
 }
 impl JsonCommand for FlakeMetadata {}
 impl TypedCommand for FlakeMetadata {
-    type Output = crate::flake_matadata::FlakeMetadata;
+    type Output = crate::flake_metadata::FlakeMetadata;
 }
 
 /// `nix develop` Command
