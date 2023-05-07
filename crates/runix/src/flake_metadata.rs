@@ -10,7 +10,7 @@ pub type FlakeLock = serde_json::Value;
 
 /// Flake Metadata as it is exposed through `nix flake metadata`
 #[serde_as]
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FlakeMetadata {
     description: String,
