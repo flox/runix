@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
+use serde_with::{serde_as, DisplayFromStr};
 
 use crate::flake_ref::lock::{Rev, RevCount};
 use crate::flake_ref::{self};
@@ -21,11 +21,11 @@ pub struct FlakeMetadata {
     original: flake_ref::FlakeRef,
     locked: flake_ref::FlakeRef,
 
-    #[serde_with(as = "DisplayFromStr")]
+    #[serde_as(as = "DisplayFromStr")]
     original_url: flake_ref::FlakeRef,
-    #[serde_with(as = "DisplayFromStr")]
+    #[serde_as(as = "DisplayFromStr")]
     resolved_url: flake_ref::FlakeRef,
-    #[serde_with(as = "DisplayFromStr")]
+    #[serde_as(as = "DisplayFromStr")]
     url: flake_ref::FlakeRef,
 
     path: PathBuf,
