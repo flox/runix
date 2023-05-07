@@ -24,7 +24,7 @@ pub struct FlakeMetadata {
     #[serde_with(as = "DisplayFromStr")]
     original_url: flake_ref::FlakeRef,
     #[serde_with(as = "DisplayFromStr")]
-    locked_url: flake_ref::FlakeRef,
+    resolved_url: flake_ref::FlakeRef,
     #[serde_with(as = "DisplayFromStr")]
     url: flake_ref::FlakeRef,
 
