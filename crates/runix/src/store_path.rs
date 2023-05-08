@@ -7,11 +7,14 @@ use once_cell::sync::Lazy;
 use thiserror::Error;
 
 /// Respect [NIX_STORE_DIR](https://nixos.org/manual/nix/stable/command-ref/env-common.html#env-NIX_STORE_DIR)
-pub static STORE_PREFIX: Lazy<String> = Lazy::new(|| {
-    std::env::var("NIX_STORE_DIR")
-        .ok()
-        .or_else(|| option_env!("NIX_STORE_DIR").map(String::from))
-        .unwrap_or_else(|| "/nix/store".to_string())
+pub static STORE_PREFIX: Lazy<PathBuf> = Lazy::new(|| {
+    Path::new(
+        &std::env::var("NIX_STORE_DIR")
+            .ok()
+            .or_else(|| option_env!("NIX_STORE_DIR").map(String::from))
+            .unwrap_or_else(|| "/nix/store".to_string()),
+    )
+    .to_path_buf()
 });
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -169,7 +172,7 @@ impl StorePath {
     /// Likely not the method you are looking for, try [`StorePath::from_path`]
     pub fn new(name: impl AsRef<str>) -> Self {
         StorePath {
-            prefix: Path::new(STORE_PREFIX.as_str()).to_path_buf(),
+            prefix: STORE_PREFIX.to_path_buf(),
             basename: name.as_ref().to_string(),
             package_path: None,
         }
@@ -205,7 +208,7 @@ impl TryFrom<PathBuf> for StorePath {
 
         let mut components = value
             .as_path()
-            .strip_prefix(STORE_PREFIX.as_str())
+            .strip_prefix(&*STORE_PREFIX)
             .map_err(|_| StorePathError::NotAStorePath(value.clone()))?
             .components()
             .peekable();
@@ -257,7 +260,7 @@ pub enum StorePathError {
     RelativePath(PathBuf, std::io::Error),
     #[error("'{0}' contains invalid components (e.g. '..')")]
     RelativeComponent(PathBuf),
-    #[error("'{0}' is not a store path (not a child of {})", STORE_PREFIX.as_str())]
+    #[error("'{0}' is not a store path (not a child of {:?})", &*STORE_PREFIX)]
     NotAStorePath(PathBuf),
     #[error("'{0}' is mising a package directory")]
     NoPackage(PathBuf),
