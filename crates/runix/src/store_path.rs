@@ -166,18 +166,6 @@ impl StorePath {
         Self::try_from(path.as_ref().to_path_buf())
     }
 
-    /// Create a store path given the out_path dir only,
-    /// substituting [STORE_PREFIX].
-    ///
-    /// Likely not the method you are looking for, try [`StorePath::from_path`]
-    pub fn new(name: impl AsRef<str>) -> Self {
-        StorePath {
-            prefix: STORE_PREFIX.to_path_buf(),
-            basename: name.as_ref().to_string(),
-            package_path: None,
-        }
-    }
-
     /// Create a store path from its components
     ///
     /// Should be used with care.
@@ -223,14 +211,18 @@ impl TryFrom<PathBuf> for StorePath {
             return Err(StorePathError::RelativeComponent(value));
         }
 
-        let name = components
+        let basename = components
             .next()
             .ok_or_else(|| StorePathError::NoPackage(value.clone()))?
             .as_os_str()
             .to_string_lossy()
             .into_owned();
 
-        let mut path = StorePath::new(name);
+        let mut path = StorePath {
+            prefix: STORE_PREFIX.to_path_buf(),
+            basename,
+            package_path: None,
+        };
 
         if components.peek().is_some() {
             let _ = path.package_path_mut().insert(components.collect());
