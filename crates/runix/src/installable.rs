@@ -91,6 +91,12 @@ impl<'a> FromIterator<&'a Attribute> for AttrPath {
     }
 }
 
+impl Extend<Attribute> for AttrPath {
+    fn extend<T: IntoIterator<Item = Attribute>>(&mut self, iter: T) {
+        self.0.extend(iter)
+    }
+}
+
 impl FromStr for AttrPath {
     type Err = ParseInstallableError;
 
