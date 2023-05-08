@@ -17,7 +17,7 @@ pub static STORE_PREFIX: Lazy<String> = Lazy::new(|| {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct StorePath {
     prefix: PathBuf,
-    name: String,
+    basename: String,
     package_path: Option<PathBuf>,
 }
 
@@ -49,8 +49,8 @@ impl StorePath {
     ///     "7rjqb838snvvxcmpvck1smfxhkwzqal5-python3-3.10.10"
     /// );
     /// ```
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn basename(&self) -> &str {
+        &self.basename
     }
 
     /// the package's path in the nix store
@@ -71,7 +71,7 @@ impl StorePath {
     /// assert_eq!(path.out_path(), Path::new(&out_path)); // !! without /bin/python
     /// ```
     pub fn out_path(&self) -> PathBuf {
-        self.prefix.join(&self.name)
+        self.prefix.join(&self.basename)
     }
 
     /// path of a file or directory inside the package
@@ -170,7 +170,7 @@ impl StorePath {
     pub fn new(name: impl AsRef<str>) -> Self {
         StorePath {
             prefix: Path::new(STORE_PREFIX.as_str()).to_path_buf(),
-            name: name.as_ref().to_string(),
+            basename: name.as_ref().to_string(),
             package_path: None,
         }
     }
@@ -186,7 +186,7 @@ impl StorePath {
     ) -> Self {
         StorePath {
             prefix: prefix.as_ref().to_path_buf(),
-            name: name.as_ref().to_string(),
+            basename: name.as_ref().to_string(),
             package_path: package_path.map(|p| p.as_ref().to_path_buf()),
         }
     }
