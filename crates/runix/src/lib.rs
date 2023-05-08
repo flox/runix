@@ -143,7 +143,7 @@
 //!     const SOURCE_ARGS: Group<Self, SourceArgs> = Some(|d| d.source.clone());
 //! }
 //! ```
-//!
+//! 
 //! Note that not all groups need to be specified.
 //! The trait implements defaults if they are not applicable.
 //!
@@ -170,7 +170,7 @@
 //!     const FLAG_TYPE: FlagType<Self> = FlagType::number_arg();
 //! }
 //! ```
-//!
+//! 
 //! All implementors of [command_line::flag::Flag] automatically
 //! implement [command_line::ToArgs].
 //!
