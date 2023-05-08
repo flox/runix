@@ -68,6 +68,11 @@ impl AttrPath {
         self.0.iter_mut()
     }
 
+    /// expose path components as slice to facilitate pattern matching
+    pub fn as_slice(&self) -> &[Attribute] {
+        self.0.as_slice()
+    }
+
     /// determine whether the attrpath is empty
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
