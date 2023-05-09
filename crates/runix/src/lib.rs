@@ -207,6 +207,7 @@ pub mod flake_matadata;
 pub mod flake_ref;
 pub mod installable;
 pub mod registry;
+pub mod store_path;
 
 pub use command_line as default;
 use serde_json::Value;

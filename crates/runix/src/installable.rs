@@ -68,6 +68,11 @@ impl AttrPath {
         self.0.iter_mut()
     }
 
+    /// expose path components as slice to facilitate pattern matching
+    pub fn as_slice(&self) -> &[Attribute] {
+        self.0.as_slice()
+    }
+
     /// determine whether the attrpath is empty
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
@@ -83,6 +88,12 @@ impl FromIterator<Attribute> for AttrPath {
 impl<'a> FromIterator<&'a Attribute> for AttrPath {
     fn from_iter<T: IntoIterator<Item = &'a Attribute>>(iter: T) -> Self {
         Self(iter.into_iter().cloned().collect())
+    }
+}
+
+impl Extend<Attribute> for AttrPath {
+    fn extend<T: IntoIterator<Item = Attribute>>(&mut self, iter: T) {
+        self.0.extend(iter)
     }
 }
 
