@@ -13,23 +13,23 @@ pub type FlakeLock = serde_json::Value;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FlakeMetadata {
-    description: String,
-    last_modified: flake_ref::Timestamp,
+    pub description: String,
+    pub last_modified: flake_ref::Timestamp,
 
-    locks: FlakeLock,
+    pub locks: FlakeLock,
 
-    original: flake_ref::FlakeRef,
-    locked: flake_ref::FlakeRef,
+    pub original: flake_ref::FlakeRef,
+    pub locked: flake_ref::FlakeRef,
 
     #[serde_as(as = "DisplayFromStr")]
-    original_url: flake_ref::FlakeRef,
+    pub original_url: flake_ref::FlakeRef,
     #[serde_as(as = "DisplayFromStr")]
-    resolved_url: flake_ref::FlakeRef,
+    pub resolved_url: flake_ref::FlakeRef,
     #[serde_as(as = "DisplayFromStr")]
-    url: flake_ref::FlakeRef,
+    pub url: flake_ref::FlakeRef,
 
-    path: PathBuf,
+    pub path: PathBuf,
 
-    revision: Option<Rev>,
-    rev_count: Option<RevCount>,
+    pub revision: Option<Rev>,
+    pub rev_count: Option<RevCount>,
 }
