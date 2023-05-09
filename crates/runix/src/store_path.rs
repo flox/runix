@@ -206,7 +206,7 @@ impl TryFrom<PathBuf> for StorePath {
             .filter(|component| {
                 component != &Component::CurDir || component != &Component::Normal(OsStr::new(""))
             })
-            .all(|component| dbg!(matches!(component, Component::Normal(_))))
+            .all(|component| matches!(component, Component::Normal(_)))
         {
             return Err(StorePathError::RelativeComponent(value));
         }
