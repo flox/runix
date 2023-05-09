@@ -95,7 +95,7 @@ impl Flag for FlakeRefArg {
     const FLAG_TYPE: FlagType<Self> = FlagType::Custom(|arg| [arg.0.to_string()].to_vec());
 }
 
-/// `nix flame metadata` Command
+/// `nix flake metadata` Command
 #[derive(Debug, Default, Clone)]
 pub struct FlakeMetadata {
     pub eval: EvaluationArgs,
@@ -113,7 +113,7 @@ impl NixCliCommand for FlakeMetadata {
 }
 impl JsonCommand for FlakeMetadata {}
 impl TypedCommand for FlakeMetadata {
-    type Output = crate::flake_matadata::FlakeMetadata;
+    type Output = crate::flake_metadata::FlakeMetadata;
 }
 
 /// `nix develop` Command
