@@ -366,7 +366,7 @@ impl NixBackend for NixCommandLine {}
 
 #[derive(Error, Debug)]
 pub enum NixCommandLineRunError {
-    #[error("An error orrured in CommandLine backend: {0}")]
+    #[error("An error occured in CommandLine backend: {0}")]
     Backend(#[from] NixCommandLineError),
     #[error("Nix call unsuccessful: [{0}]")]
     Exit(ExitStatus),
