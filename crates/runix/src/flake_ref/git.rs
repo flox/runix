@@ -60,6 +60,25 @@ impl<Protocol: GitProtocol> FlakeRefSource for GitRef<Protocol> {
     fn scheme() -> Cow<'static, str> {
         format!("git+{inner}", inner = Protocol::scheme()).into()
     }
+
+    type ParseErr = ParseGitError;
+
+    fn from_url(url: Url) -> Result<Self, Self::ParseErr> {
+        if url.scheme() != Self::scheme() {
+            return Err(ParseGitError::InvalidScheme(
+                Self::scheme().to_string(),
+                url.scheme().to_string(),
+            ));
+        }
+
+        let attributes: GitAttributes =
+            serde_urlencoded::from_str(url.query().unwrap_or_default())?;
+
+        let url = GitUrl::<Protocol>::from_str(url.as_str().trim_start_matches("git+"))?;
+
+        Ok(GitRef { url, attributes })
+    }
+
 }
 
 impl<Protocol: GitProtocol> Display for GitRef<Protocol> {
@@ -80,20 +99,7 @@ impl<Protocol: GitProtocol> FromStr for GitRef<Protocol> {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url = Url::parse(s)?;
-
-        if url.scheme() != Self::scheme() {
-            return Err(ParseGitError::InvalidScheme(
-                Self::scheme().to_string(),
-                url.scheme().to_string(),
-            ));
-        }
-
-        let attributes: GitAttributes =
-            serde_urlencoded::from_str(url.query().unwrap_or_default())?;
-
-        let url = GitUrl::<Protocol>::from_str(s.trim_start_matches("git+"))?;
-
-        Ok(GitRef { url, attributes })
+        Self::from_url(url)
     }
 }
 

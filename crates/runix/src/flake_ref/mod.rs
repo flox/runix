@@ -1,17 +1,23 @@
 use std::borrow::Cow;
 use std::fmt::Display;
+use std::path::{PathBuf, Component};
 use std::str::FromStr;
 
 use chrono::{NaiveDateTime, TimeZone, Utc};
 use derive_more::{Display, From};
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
+use url::Url;
 
-use self::file::{FileRef, TarballRef};
+use self::file::application::ApplicationProtocol;
+use self::file::{FileRef, TarballRef, application};
 use self::git::GitRef;
 use self::git_service::{service, GitServiceRef};
 use self::indirect::IndirectRef;
 use self::path::PathRef;
+use self::protocol::Protocol;
 
 pub mod file;
 pub mod git;
@@ -21,12 +27,65 @@ pub mod lock;
 pub mod path;
 pub mod protocol;
 
-pub trait FlakeRefSource: FromStr + Display {
+pub static FLAKE_ID_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("[a-zA-Z][a-zA-Z0-9_-]*").unwrap());
+
+
+pub trait FlakeRefSource:  FromStr + Display {
+    type ParseErr;
+
     fn scheme() -> Cow<'static, str>;
+
+    fn from_url(url: Url) -> Result<Self, Self::ParseErr>;
+
     fn parses(maybe_ref: &str) -> bool {
         maybe_ref.starts_with(&format!("{}:", Self::scheme()))
     }
 }
+
+
+
+pub trait FromUrl {
+
+}
+
+pub enum ImpureFlakeRef {
+    Pure(FlakeRef),
+    Impure(String),
+}
+
+impl FromStr for ImpureFlakeRef {
+    type Err = ParseFlakeRefError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match Url::parse(s) {
+            Ok(_) => Ok(Self::Pure(s.parse()?)),
+            Err(_) => Ok(Self::Impure(s.to_string())),
+        }
+    }
+}
+
+// impl ImpureFlakeRef {
+//     pub fn resolve(self) -> Result<FlakeRef, ()> {
+
+//         match self {
+//             Self::Pure(flakeref) => return Ok(flakeref),
+//             Self::Impure(impure) => {
+//                 let path = PathBuf::from(impure);
+//                 if let Ok()
+//             }
+//         }
+
+
+//         todo!()
+
+//     }
+
+
+// }
+
+
+
+
 
 #[derive(Serialize, Deserialize, Display, From, Debug, Clone, PartialEq, Eq)]
 #[serde(untagged)]
@@ -53,9 +112,17 @@ impl FromStr for FlakeRef {
     type Err = ParseFlakeRefError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let flake_ref = match s {
+        let url = Url::parse(s).unwrap();
+
+
+
+
+        let flake_ref = match url.scheme() {
+            protocol::File::scheme() if application::File::required(&url) =>  FileRef::<protocol::File>::from_url(url)?.into(),
+
+
             _ if FileRef::<protocol::File>::parses(s) => {
-                s.parse::<FileRef<protocol::File>>()?.into()
+                s.parse::<
             },
             _ if FileRef::<protocol::HTTP>::parses(s) => {
                 s.parse::<FileRef<protocol::HTTP>>()?.into()

@@ -42,6 +42,8 @@ impl PathRef {
 }
 
 impl FlakeRefSource for PathRef {
+    type ParseErr = ParsePathRefError;
+
     fn scheme() -> Cow<'static, str> {
         "path".into()
     }
@@ -50,6 +52,20 @@ impl FlakeRefSource for PathRef {
         ["path:", "/", "."]
             .iter()
             .any(|prefix| maybe_ref.starts_with(prefix))
+    }
+
+    fn from_url(url: Url) -> Result<Self, Self::ParseErr> {
+        if url.scheme() != Self::scheme() {
+            return Err(ParsePathRefError::InvalidScheme(
+                Self::scheme().to_string(),
+                url.scheme().to_string(),
+            ));
+        }
+        let path = Path::new(url.path()).to_path_buf();
+        let attributes: PathAttributes =
+            serde_urlencoded::from_str(url.query().unwrap_or_default())?;
+
+        Ok(PathRef { path, attributes })
     }
 }
 
@@ -64,18 +80,7 @@ impl FromStr for PathRef {
             },
             e => e?,
         };
-
-        if url.scheme() != Self::scheme() {
-            return Err(ParsePathRefError::InvalidScheme(
-                Self::scheme().to_string(),
-                url.scheme().to_string(),
-            ));
-        }
-        let path = Path::new(url.path()).to_path_buf();
-        let attributes: PathAttributes =
-            serde_urlencoded::from_str(url.query().unwrap_or_default())?;
-
-        Ok(PathRef { path, attributes })
+        Self::from_url(url)
     }
 }
 

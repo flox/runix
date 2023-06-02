@@ -165,13 +165,15 @@ impl FileProtocol for protocol::File {}
 impl FileProtocol for protocol::HTTP {}
 impl FileProtocol for protocol::HTTPS {}
 
-impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource
-    for FileBasedRef<Protocol, Type>
+impl<Protocol: FileProtocol, App: ApplicationProtocol> FlakeRefSource
+    for FileBasedRef<Protocol, App>
 {
+    type ParseErr = ParseFileError;
+
     fn scheme() -> Cow<'static, str> {
         format!(
             "{outer}+{inner}",
-            outer = Type::protocol(),
+            outer = App::protocol(),
             inner = Protocol::scheme()
         )
         .into()
@@ -196,13 +198,57 @@ impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource
         }
 
         if !Url::parse(maybe_ref)
-            .map(|url| Type::required(&url))
+            .map(|url| App::required(&url))
             .unwrap_or(false)
         {
             return maybe_ref.starts_with(&format!("{scheme}:", scheme = Protocol::scheme()));
         }
 
         false
+    }
+
+    fn from_url(url: Url) -> Result<Self, Self::ParseErr> {
+        // resolve the application part from the url schema.
+        // report missing application if required ( see [ApplicationProtocol::required])
+        // deduce from url
+        // - `app` will be the (implied) application
+        // - `proto` the transport protocol from the url scheme
+        // - `url` the url with application prepended
+        // - `wrapped` the parsed url with guaranteed scheme
+        let (app, proto, url, wrapped) = if let Some((app, proto)) = &url.scheme().split_once('+') {
+            let wrapped = url
+                .to_string()
+                .trim_start_matches(&format!("{app}+"))
+                .parse()?;
+
+            (app.to_string(), proto.to_string(), url, wrapped)
+        } else if !App::required(&url) {
+            let app = App::protocol();
+            let proto = url.scheme();
+            let fixed = Url::parse(&format!("{app}+{url}"))?;
+            (app.to_string(), proto.to_string(), fixed, url.try_into()?)
+        } else {
+            return Err(ParseFileError::InvalidScheme(
+                Self::scheme().to_string(),
+                url.scheme().to_string(),
+            ));
+        };
+
+        if app != App::protocol() || proto != Protocol::scheme() {
+            return Err(ParseFileError::InvalidScheme(
+                Self::scheme().to_string(),
+                url.scheme().to_string(),
+            ));
+        };
+
+        let attributes: FileAttributes =
+            serde_urlencoded::from_str(url.query().unwrap_or_default())?;
+
+        Ok(FileBasedRef {
+            url: wrapped,
+            attributes,
+            _type: Application::default(),
+        })
     }
 }
 
@@ -237,54 +283,11 @@ impl<Protocol: FileProtocol, App: ApplicationProtocol> Display for FileBasedRef<
 }
 
 impl<Protocol: FileProtocol, App: ApplicationProtocol> FromStr for FileBasedRef<Protocol, App> {
-    type Err = ParseFileError;
+    type Err = <Self as FlakeRefSource>::ParseErr;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url = Url::parse(s)?;
-
-        // resolve the application part from the url schema.
-        // report missing application if required ( see [ApplicationProtocol::required])
-        // deduce from url
-        // - `app` will be the (implied) application
-        // - `proto` the transport protocol from the url scheme
-        // - `url` the url with application prepended
-        // - `wrapped` the parsed url with guaranteed scheme
-        let (app, proto, url, wrapped) = if let Some((app, proto)) = &url.scheme().split_once('+') {
-            let wrapped = FileUrl::<Protocol>::from_str(s.trim_start_matches(&format!("{app}+")))?;
-
-            (app.to_string(), proto.to_string(), url, wrapped)
-        } else if App::required(&url) {
-            return Err(ParseFileError::InvalidScheme(
-                Self::scheme().to_string(),
-                url.scheme().to_string(),
-            ));
-        } else {
-            let app = App::protocol();
-            let proto = url.scheme();
-            let fixed = Url::parse(&format!("{app}+{url}"))?;
-            (
-                app.to_string(),
-                proto.to_string(),
-                fixed,
-                FileUrl::<Protocol>::from_str(s)?,
-            )
-        };
-
-        if app != App::protocol() || proto != Protocol::scheme() {
-            return Err(ParseFileError::InvalidScheme(
-                Self::scheme().to_string(),
-                url.scheme().to_string(),
-            ));
-        };
-
-        let attributes: FileAttributes =
-            serde_urlencoded::from_str(url.query().unwrap_or_default())?;
-
-        Ok(FileBasedRef {
-            url: wrapped,
-            attributes,
-            _type: Application::default(),
-        })
+        Self::from_url(url)
     }
 }
 

@@ -113,15 +113,13 @@ impl<Service: Default> GitServiceRef<Service> {
 }
 
 impl<Service: service::GitServiceHost> FlakeRefSource for GitServiceRef<Service> {
+    type ParseErr = ParseGitServiceError;
+
     fn scheme() -> Cow<'static, str> {
         Service::scheme()
     }
-}
-impl<Service: service::GitServiceHost> FromStr for GitServiceRef<Service> {
-    type Err = ParseGitServiceError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let url = Url::parse(s)?;
+    fn from_url(url: Url) -> Result<Self, Self::ParseErr> {
         if url.scheme() != Self::scheme() {
             return Err(ParseGitServiceError::InvalidScheme(
                 Self::scheme().to_string(),
@@ -160,6 +158,14 @@ impl<Service: service::GitServiceHost> FromStr for GitServiceRef<Service> {
             attributes,
             _type: Default::default(),
         })
+    }
+}
+impl<Service: service::GitServiceHost> FromStr for GitServiceRef<Service> {
+    type Err = ParseGitServiceError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let url = Url::parse(s)?;
+        Self::from_url(url)
     }
 }
 

@@ -39,6 +39,8 @@ impl IndirectRef {
 }
 
 impl FlakeRefSource for IndirectRef {
+    type ParseErr = ParseIndirectError;
+
     fn scheme() -> Cow<'static, str> {
         "flake".into()
     }
@@ -54,6 +56,17 @@ impl FlakeRefSource for IndirectRef {
 
         ('a'..='z').any(|prefix| maybe_ref.starts_with(prefix))
             || ('A'..='Z').any(|prefix| maybe_ref.starts_with(prefix))
+    }
+
+    fn from_url(url: Url) -> Result<Self, Self::ParseErr> {
+        let id = url.path().to_string();
+        let attributes = serde_urlencoded::from_str(url.query().unwrap_or_default())?;
+        let _type = Tag::Indirect;
+        Ok(IndirectRef {
+            id,
+            attributes,
+            _type,
+        })
     }
 }
 
@@ -87,15 +100,7 @@ impl FromStr for IndirectRef {
             },
             e => e?,
         };
-
-        let id = url.path().to_string();
-        let attributes = serde_urlencoded::from_str(url.query().unwrap_or_default())?;
-        let _type = Tag::Indirect;
-        Ok(IndirectRef {
-            id,
-            attributes,
-            _type,
-        })
+        Self::from_url(url)
     }
 }
 
