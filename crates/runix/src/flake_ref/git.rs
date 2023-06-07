@@ -57,11 +57,11 @@ impl<Protocol: GitProtocol> GitRef<Protocol> {
 }
 
 impl<Protocol: GitProtocol> FlakeRefSource for GitRef<Protocol> {
+    type ParseErr = ParseGitError;
+
     fn scheme() -> Cow<'static, str> {
         format!("git+{inner}", inner = Protocol::scheme()).into()
     }
-
-    type ParseErr = ParseGitError;
 
     fn from_url(url: Url) -> Result<Self, Self::ParseErr> {
         if url.scheme() != Self::scheme() {
@@ -78,7 +78,6 @@ impl<Protocol: GitProtocol> FlakeRefSource for GitRef<Protocol> {
 
         Ok(GitRef { url, attributes })
     }
-
 }
 
 impl<Protocol: GitProtocol> Display for GitRef<Protocol> {
