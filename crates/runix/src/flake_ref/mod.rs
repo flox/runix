@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::fmt::Display;
-use std::path::{PathBuf, Component};
 use std::str::FromStr;
 
 use chrono::{NaiveDateTime, TimeZone, Utc};
@@ -11,13 +10,11 @@ use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
 use url::Url;
 
-use self::file::application::ApplicationProtocol;
-use self::file::{FileRef, TarballRef, application};
+use self::file::{FileRef, TarballRef};
 use self::git::GitRef;
 use self::git_service::{service, GitServiceRef};
 use self::indirect::IndirectRef;
 use self::path::PathRef;
-use self::protocol::Protocol;
 
 pub mod file;
 pub mod git;
@@ -27,10 +24,10 @@ pub mod lock;
 pub mod path;
 pub mod protocol;
 
-pub static FLAKE_ID_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("[a-zA-Z][a-zA-Z0-9_-]*").unwrap());
+pub static FLAKE_ID_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new("[a-zA-Z][a-zA-Z0-9_-]*").unwrap());
 
-
-pub trait FlakeRefSource:  FromStr + Display {
+pub trait FlakeRefSource: FromStr + Display {
     type ParseErr;
 
     fn scheme() -> Cow<'static, str>;
@@ -113,16 +110,9 @@ impl FromStr for FlakeRef {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url = Url::parse(s).unwrap();
-
-
-
-
         let flake_ref = match url.scheme() {
-            protocol::File::scheme() if application::File::required(&url) =>  FileRef::<protocol::File>::from_url(url)?.into(),
-
-
             _ if FileRef::<protocol::File>::parses(s) => {
-                s.parse::<
+                s.parse::<FileRef<protocol::File>>()?.into()
             },
             _ if FileRef::<protocol::HTTP>::parses(s) => {
                 s.parse::<FileRef<protocol::HTTP>>()?.into()

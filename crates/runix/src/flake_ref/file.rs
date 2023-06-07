@@ -190,18 +190,18 @@ impl<Protocol: FileProtocol, App: ApplicationProtocol> FlakeRefSource
     ///    In some cases this application can be deduced from the url,
     ///    e.g. by looking at the path and file extension. (See [ApplicationProtocol::required])
     fn parses(maybe_ref: &str) -> bool {
-        if maybe_ref.starts_with(&format!(
-            "{scheme_with_application}:",
-            scheme_with_application = Self::scheme()
-        )) {
+        let url = if let Ok(url) = Url::parse(maybe_ref) {
+            url
+        } else {
+            return false;
+        };
+
+        if url.scheme() == Self::scheme() {
             return true;
         }
 
-        if !Url::parse(maybe_ref)
-            .map(|url| App::required(&url))
-            .unwrap_or(false)
-        {
-            return maybe_ref.starts_with(&format!("{scheme}:", scheme = Protocol::scheme()));
+        if !App::required(&url) && url.scheme() == Protocol::scheme() {
+            return true;
         }
 
         false
@@ -264,12 +264,16 @@ impl<Protocol: FileProtocol, App: ApplicationProtocol> FileBasedRef<Protocol, Ap
 
 impl<Protocol: FileProtocol, App: ApplicationProtocol> Display for FileBasedRef<Protocol, App> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut url: Url = Url::parse(&format!(
-            "{application}+{url}",
-            application = self._type,
-            url = self.url
-        ))
-        .unwrap();
+        let mut url = if App::required(&self.url) {
+            Url::parse(&format!(
+                "{application}+{url}",
+                application = self._type,
+                url = self.url
+            ))
+            .unwrap()
+        } else {
+            self.url.clone()
+        };
 
         url.set_query(
             serde_urlencoded::to_string(&self.attributes)
@@ -323,7 +327,7 @@ mod tests {
     fn file_file_roundtrips() {
         roundtrip::<FileFileRef>("file:///somewhere/there");
         roundtrip_to::<FileFileRef>("file+file:///somewhere/there", "file:///somewhere/there");
-        roundtrip::<FileFileRef>("file+file:///somewhere/there?unpack=true");
+        roundtrip::<FileFileRef>("file:///somewhere/there?unpack=true");
     }
 
     #[test]
@@ -372,6 +376,6 @@ mod tests {
 
     #[test]
     fn test_parse_nar_hash() {
-        roundtrip::<FileFileRef>("file+file:///somewhere/there?narHash=sha256-MjeRjunqfGTBGU401nxIjs7PC9PZZ1FBCZp%2FbRB3C2M%3D")
+        roundtrip::<FileFileRef>("file:///somewhere/there?narHash=sha256-MjeRjunqfGTBGU401nxIjs7PC9PZZ1FBCZp%2FbRB3C2M%3D")
     }
 }
