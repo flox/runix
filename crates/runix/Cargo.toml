@@ -28,3 +28,7 @@ thiserror = "1.0"
 chrono = { version = "0.4.24", features = ["serde"] }
 regex = "1.7.2"
 once_cell = "1.17.1"
+
+[dev-dependencies]
+tempfile = "3"
+pathdiff = "0.2.1"
