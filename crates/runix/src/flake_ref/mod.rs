@@ -119,7 +119,9 @@ impl FromStr for FlakeRef {
                 s.parse::<GitServiceRef<service::Gitlab>>()?.into()
             },
             _ if PathRef::parses(s) => s.parse::<PathRef>()?.into(),
-            _ if GitRef::<protocol::File>::parses(s) => s.parse::<GitRef<protocol::File>>()?.into(),
+            _ if GitRef::<protocol::File>::parses(s) => {
+                dbg!(GitRef::<protocol::File>::from_url(dbg!(url))?.into())
+            },
             _ if GitRef::<protocol::SSH>::parses(s) => s.parse::<GitRef<protocol::SSH>>()?.into(),
             _ if GitRef::<protocol::HTTP>::parses(s) => s.parse::<GitRef<protocol::HTTP>>()?.into(),
             _ if GitRef::<protocol::HTTPS>::parses(s) => {
@@ -156,7 +158,7 @@ impl FlakeRef {
     pub fn resolve_local(s: impl AsRef<str>) -> Result<Url, ResolveLocalRefError> {
         let s = s.as_ref();
         let mut git_url =
-            Url::parse(&format!("git+file://{s}")).map_err(ResolveLocalRefError::ParseUrl)?;
+            Url::parse(&format!("git+file:{s}")).map_err(ResolveLocalRefError::ParseUrl)?;
 
         let path = Path::new(git_url.path());
         let path = path
@@ -211,9 +213,9 @@ impl FlakeRef {
 
             ancestor.join(".git").exists()
         }) {
-            let mut found = git_url.clone();
+            let mut found = Url::parse("git+file:/").unwrap();
+            found.set_query(git_url.query());
             found.set_path(&git_root.to_string_lossy());
-            found.set_host(Some("")).unwrap();
 
             if git_root != flake_root {
                 let dir_param = flake_root.strip_prefix(git_root).unwrap();
@@ -530,7 +532,7 @@ pub(super) mod tests {
             FlakeRef::resolve_local(&git_dir_string)
                 .unwrap()
                 .to_string(),
-            Url::parse(&format!("git+file://{git_dir_string}"))
+            Url::parse(&format!("git+file:{git_dir_string}"))
                 .unwrap()
                 .to_string()
         )
@@ -561,7 +563,7 @@ pub(super) mod tests {
             FlakeRef::resolve_local(&flake_root.to_string_lossy())
                 .unwrap()
                 .to_string(),
-            Url::parse(&format!("git+file://{git_dir_string}?dir={flake_dir_name}"))
+            Url::parse(&format!("git+file:{git_dir_string}?dir={flake_dir_name}"))
                 .unwrap()
                 .to_string()
         )
@@ -586,7 +588,7 @@ pub(super) mod tests {
             FlakeRef::resolve_local(relative_path.to_string_lossy())
                 .unwrap()
                 .to_string(),
-            Url::parse(&format!("git+file://{}", git_dir.to_string_lossy()))
+            Url::parse(&format!("git+file:{}", git_dir.to_string_lossy()))
                 .unwrap()
                 .to_string()
         )
