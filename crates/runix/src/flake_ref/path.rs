@@ -107,16 +107,13 @@ mod tests {
     use chrono::{TimeZone, Utc};
 
     use super::*;
+    use crate::flake_ref::FlakeRef;
 
     #[test]
     fn parses_path_flakeref() {
         assert_eq!(
-            PathRef::from_str("/some/where").unwrap(),
-            PathRef::from_str("path:///some/where").unwrap()
-        );
-        assert_eq!(
-            PathRef::from_str("./some/where").unwrap(),
-            PathRef::from_str("path:./some/where").unwrap()
+            FlakeRef::from_str("path:/can/be/missing").unwrap(),
+            FlakeRef::Path(PathRef::from_str("path:/can/be/missing").unwrap())
         );
     }
 

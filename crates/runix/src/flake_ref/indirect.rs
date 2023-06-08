@@ -105,6 +105,7 @@ mod tests {
 
     use super::*;
     use crate::flake_ref::tests::roundtrip_to;
+    use crate::flake_ref::FlakeRef;
 
     /// Ensure that an indirect flake ref serializes without information loss
     #[test]
@@ -130,7 +131,10 @@ mod tests {
         };
 
         assert_eq!(IndirectRef::from_str("flake:nixpkgs").unwrap(), expected);
-        assert_eq!(IndirectRef::from_str("nixpkgs").unwrap(), expected);
+        assert_eq!(
+            FlakeRef::from_str("nixpkgs").unwrap(),
+            FlakeRef::Indirect(expected)
+        );
     }
 
     #[test]
@@ -140,7 +144,8 @@ mod tests {
 
     #[test]
     fn roundtrip_attributes() {
-        roundtrip_to::<IndirectRef>("nixpkgs?ref=master&dir=1", "flake:nixpkgs?dir=1&ref=master");
+        // IndirectRef does not convert non-well-defined flake urls on its own anymore
+        roundtrip_to::<FlakeRef>("nixpkgs?ref=master&dir=1", "flake:nixpkgs?dir=1&ref=master");
     }
 
     #[test]
