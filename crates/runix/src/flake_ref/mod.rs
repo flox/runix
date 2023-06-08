@@ -200,7 +200,7 @@ impl FlakeRef {
                 break ancestor;
             }
 
-            if path.join(".git").exists() {
+            if ancestor.join(".git").exists() {
                 Err(ResolveLocalRefError::GitRepoBoundary(
                     ancestor.to_path_buf(),
                 ))?;
