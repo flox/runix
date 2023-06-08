@@ -87,7 +87,7 @@ impl FromStr for FlakeRef {
                     FlakeRef::resolve_local(s)?
                 };
 
-                info!("Could not parse flakeref as URL, resolved locally to '{resolved:?}'");
+                info!("Could not parse flakeref as URL; resolved locally to '{resolved:?}'");
 
                 resolved
             },
