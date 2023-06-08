@@ -29,7 +29,7 @@ pub mod path;
 pub mod protocol;
 
 pub static FLAKE_ID_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new("[a-zA-Z][a-zA-Z0-9_-]*").unwrap());
+    Lazy::new(|| Regex::new("^[a-zA-Z][a-zA-Z0-9_-]*(/[a-zA-Z][a-zA-Z0-9_-])*\\??").unwrap());
 
 pub trait FlakeRefSource: FromStr + Display {
     type ParseErr;
@@ -38,8 +38,8 @@ pub trait FlakeRefSource: FromStr + Display {
 
     fn from_url(url: Url) -> Result<Self, Self::ParseErr>;
 
-    fn parses(maybe_ref: &str) -> bool {
-        maybe_ref.starts_with(&format!("{}:", Self::scheme()))
+    fn parses(maybe_ref: &Url) -> bool {
+        maybe_ref.scheme() == Self::scheme()
     }
 }
 
@@ -93,44 +93,50 @@ impl FromStr for FlakeRef {
             },
         };
 
+        dbg!(&url);
+
         let flake_ref = match url.scheme() {
-            _ if FileRef::<protocol::File>::parses(s) => {
-                s.parse::<FileRef<protocol::File>>()?.into()
+            _ if FileRef::<protocol::File>::parses(&url) => {
+                FileRef::<protocol::File>::from_url(url)?.into()
             },
-            _ if FileRef::<protocol::HTTP>::parses(s) => {
-                s.parse::<FileRef<protocol::HTTP>>()?.into()
+            _ if FileRef::<protocol::HTTP>::parses(&url) => {
+                FileRef::<protocol::HTTP>::from_url(url)?.into()
             },
-            _ if FileRef::<protocol::HTTPS>::parses(s) => {
-                s.parse::<FileRef<protocol::HTTPS>>()?.into()
+            _ if FileRef::<protocol::HTTPS>::parses(&url) => {
+                FileRef::<protocol::HTTPS>::from_url(url)?.into()
             },
-            _ if TarballRef::<protocol::File>::parses(s) => {
-                s.parse::<TarballRef<protocol::File>>()?.into()
+            _ if TarballRef::<protocol::File>::parses(&url) => {
+                TarballRef::<protocol::File>::from_url(url)?.into()
             },
-            _ if TarballRef::<protocol::HTTP>::parses(s) => {
-                s.parse::<TarballRef<protocol::HTTP>>()?.into()
+            _ if TarballRef::<protocol::HTTP>::parses(&url) => {
+                TarballRef::<protocol::HTTP>::from_url(url)?.into()
             },
-            _ if TarballRef::<protocol::HTTPS>::parses(s) => {
-                s.parse::<TarballRef<protocol::HTTPS>>()?.into()
+            _ if TarballRef::<protocol::HTTPS>::parses(&url) => {
+                TarballRef::<protocol::HTTPS>::from_url(url)?.into()
             },
-            _ if GitServiceRef::<service::Github>::parses(s) => {
-                s.parse::<GitServiceRef<service::Github>>()?.into()
+            _ if GitServiceRef::<service::Github>::parses(&url) => {
+                GitServiceRef::<service::Github>::from_url(url)?.into()
             },
-            _ if GitServiceRef::<service::Gitlab>::parses(s) => {
-                s.parse::<GitServiceRef<service::Gitlab>>()?.into()
+            _ if GitServiceRef::<service::Gitlab>::parses(&url) => {
+                GitServiceRef::<service::Gitlab>::from_url(url)?.into()
             },
-            _ if PathRef::parses(s) => s.parse::<PathRef>()?.into(),
-            _ if GitRef::<protocol::File>::parses(s) => {
+            _ if PathRef::parses(&url) => PathRef::from_url(url)?.into(),
+            _ if GitRef::<protocol::File>::parses(&url) => {
                 dbg!(GitRef::<protocol::File>::from_url(dbg!(url))?.into())
             },
-            _ if GitRef::<protocol::SSH>::parses(s) => s.parse::<GitRef<protocol::SSH>>()?.into(),
-            _ if GitRef::<protocol::HTTP>::parses(s) => s.parse::<GitRef<protocol::HTTP>>()?.into(),
-            _ if GitRef::<protocol::HTTPS>::parses(s) => {
-                s.parse::<GitRef<protocol::HTTPS>>()?.into()
+            _ if GitRef::<protocol::SSH>::parses(&url) => {
+                GitRef::<protocol::SSH>::from_url(url)?.into()
             },
-            _ if IndirectRef::parses(s) => s.parse::<IndirectRef>()?.into(),
+            _ if GitRef::<protocol::HTTP>::parses(&url) => {
+                GitRef::<protocol::HTTP>::from_url(url)?.into()
+            },
+            _ if GitRef::<protocol::HTTPS>::parses(&url) => {
+                GitRef::<protocol::HTTPS>::from_url(url)?.into()
+            },
+            _ if IndirectRef::parses(&url) => IndirectRef::from_url(url)?.into(),
             _ => Err(ParseFlakeRefError::Invalid)?,
         };
-        Ok(flake_ref)
+        dbg!(Ok(flake_ref))
     }
 }
 

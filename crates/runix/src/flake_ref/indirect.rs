@@ -45,19 +45,6 @@ impl FlakeRefSource for IndirectRef {
         "flake".into()
     }
 
-    fn parses(maybe_ref: &str) -> bool {
-        if maybe_ref.starts_with("flake:") {
-            return true;
-        }
-
-        if maybe_ref.contains(':') {
-            return false;
-        }
-
-        ('a'..='z').any(|prefix| maybe_ref.starts_with(prefix))
-            || ('A'..='Z').any(|prefix| maybe_ref.starts_with(prefix))
-    }
-
     fn from_url(url: Url) -> Result<Self, Self::ParseErr> {
         let id = url.path().to_string();
         let attributes = serde_urlencoded::from_str(url.query().unwrap_or_default())?;
@@ -95,9 +82,6 @@ impl FromStr for IndirectRef {
                 url_bad_scheme.scheme().to_string(),
                 Self::scheme().into_owned(),
             ))?,
-            Err(_) if Self::parses(s) && !s.starts_with(&*Self::scheme()) => {
-                Url::parse(&format!("{scheme}:{s}", scheme = Self::scheme()))?
-            },
             e => e?,
         };
         Self::from_url(url)

@@ -189,18 +189,18 @@ impl<Protocol: FileProtocol, App: ApplicationProtocol> FlakeRefSource
     ///    Nix supports tarballs as their own filetype.
     ///    In some cases this application can be deduced from the url,
     ///    e.g. by looking at the path and file extension. (See [ApplicationProtocol::required])
-    fn parses(maybe_ref: &str) -> bool {
-        let url = if let Ok(url) = Url::parse(maybe_ref) {
-            url
-        } else {
-            return false;
-        };
+    fn parses(maybe_ref: &Url) -> bool {
+        // let url = if let Ok(url) = Url::parse(maybe_ref) {
+        //     url
+        // } else {
+        //     return false;
+        // };
 
-        if url.scheme() == Self::scheme() {
+        if maybe_ref.scheme() == Self::scheme() {
             return true;
         }
 
-        if !App::required(&url) && url.scheme() == Protocol::scheme() {
+        if !App::required(maybe_ref) && maybe_ref.scheme() == Protocol::scheme() {
             return true;
         }
 

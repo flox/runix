@@ -48,12 +48,6 @@ impl FlakeRefSource for PathRef {
         "path".into()
     }
 
-    fn parses(maybe_ref: &str) -> bool {
-        ["path:", "/", "."]
-            .iter()
-            .any(|prefix| maybe_ref.starts_with(prefix))
-    }
-
     fn from_url(url: Url) -> Result<Self, Self::ParseErr> {
         if url.scheme() != Self::scheme() {
             return Err(ParsePathRefError::InvalidScheme(
@@ -73,13 +67,7 @@ impl FromStr for PathRef {
     type Err = ParsePathRefError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let url = match Url::parse(s) {
-            Ok(url) => url,
-            Err(_) if Self::parses(s) && !s.starts_with(&*Self::scheme()) => {
-                Url::parse(&format!("path:{s}"))?
-            },
-            e => e?,
-        };
+        let url = Url::parse(s)?;
         Self::from_url(url)
     }
 }
