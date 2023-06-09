@@ -93,8 +93,6 @@ impl FromStr for FlakeRef {
             },
         };
 
-        dbg!(&url);
-
         let flake_ref = match url.scheme() {
             _ if FileRef::<protocol::File>::parses(&url) => {
                 FileRef::<protocol::File>::from_url(url)?.into()
@@ -122,7 +120,7 @@ impl FromStr for FlakeRef {
             },
             _ if PathRef::parses(&url) => PathRef::from_url(url)?.into(),
             _ if GitRef::<protocol::File>::parses(&url) => {
-                dbg!(GitRef::<protocol::File>::from_url(dbg!(url))?.into())
+                GitRef::<protocol::File>::from_url(url)?.into()
             },
             _ if GitRef::<protocol::SSH>::parses(&url) => {
                 GitRef::<protocol::SSH>::from_url(url)?.into()
@@ -136,7 +134,7 @@ impl FromStr for FlakeRef {
             _ if IndirectRef::parses(&url) => IndirectRef::from_url(url)?.into(),
             _ => Err(ParseFlakeRefError::Invalid)?,
         };
-        dbg!(Ok(flake_ref))
+        Ok(flake_ref)
     }
 }
 
@@ -461,8 +459,19 @@ pub(super) mod tests {
             dbg!(FlakeRef::from_str("path:/somewhere/there")).unwrap(),
             FlakeRef::Path(_)
         ));
+
+        let tempdir = tempfile::tempdir().unwrap();
+        File::create(tempdir.path().join("flake.nix")).unwrap();
+        assert!(matches!(
+            dbg!(FlakeRef::from_str(&tempdir.path().to_string_lossy())).unwrap(),
+            FlakeRef::Path(_)
+        ));
         assert!(matches!(
             dbg!(FlakeRef::from_str("git+file:///somewhere/there")).unwrap(),
+            FlakeRef::GitPath(_)
+        ));
+        assert!(matches!(
+            dbg!(FlakeRef::from_str("./")).unwrap(),
             FlakeRef::GitPath(_)
         ));
         assert!(matches!(
@@ -479,6 +488,10 @@ pub(super) mod tests {
         ));
         assert!(matches!(
             dbg!(FlakeRef::from_str("flake:nixpkgs")).unwrap(),
+            FlakeRef::Indirect(_)
+        ));
+        assert!(matches!(
+            dbg!(FlakeRef::from_str("nixpkgs")).unwrap(),
             FlakeRef::Indirect(_)
         ));
     }
