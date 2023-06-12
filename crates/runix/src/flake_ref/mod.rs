@@ -200,7 +200,7 @@ impl FlakeRef {
             }
 
             if ancestor.join("flake.nix").exists() {
-                debug!("found for flake in {ancestor:?}");
+                debug!("found flake in {ancestor:?}");
                 break ancestor;
             }
 
@@ -496,6 +496,8 @@ pub(super) mod tests {
         ));
     }
 
+    /// basic
+    /// └── flake.nix
     #[test]
     fn test_resolve_absolute_non_git_local() {
         let flake_test_dir = tempfile::tempdir().unwrap();
@@ -532,6 +534,9 @@ pub(super) mod tests {
         )
     }
 
+    /// withgit
+    /// ├── .git
+    /// └── flake.nix
     #[test]
     fn test_resolve_absolute_git_local() {
         let flake_test_dir = tempfile::tempdir().unwrap();
@@ -557,6 +562,10 @@ pub(super) mod tests {
         )
     }
 
+    /// withgit
+    /// ├── .git
+    /// └── inner
+    ///     └── flake.nix
     #[test]
     fn test_resolve_absolute_git_local_nested() {
         let flake_test_dir = tempfile::tempdir().unwrap();

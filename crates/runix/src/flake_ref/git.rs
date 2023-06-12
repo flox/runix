@@ -196,7 +196,7 @@ mod tests {
         );
     }
 
-    /// assert that relative file urls are
+    /// assert that relative file urls are rosolved to git urls correctly
     #[test]
     fn relative_git_urls() {
         let url = GitRef::<protocol::File>::from_str("git+file:..").unwrap();
@@ -223,13 +223,13 @@ mod tests {
         );
         dbg!(url.to_string());
 
-        // with "//" an absolute path is required prt the Url spec for file urls
+        // with "//" an absolute path is required per the Url spec for file urls
         let url = GitRef::<protocol::File>::from_str("git+file:///var/www").unwrap();
         dbg!(&url);
         assert_eq!(url.url.path(), "/var/www");
         dbg!(url.to_string());
 
-        // with "//" an absolute path is required prt the Url spec for file urls
+        // with "//" an absolute path is required per the Url spec for file urls
         // relative paths such as var/www below are parsed as
         //
         //     var/www
