@@ -665,7 +665,7 @@ pub(super) mod tests {
         ));
 
         // /<git_root>/inner?dir=inner
-        // nix does resolves the path to
+        // nix resolves the path to
         //    git+file://<git_root>?dir=inner
         // and does not accept an existing `dir` parameter in that case to avoid ambuguity
         assert!(matches!(
