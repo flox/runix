@@ -190,12 +190,6 @@ impl<Protocol: FileProtocol, App: ApplicationProtocol> FlakeRefSource
     ///    In some cases this application can be deduced from the url,
     ///    e.g. by looking at the path and file extension. (See [ApplicationProtocol::required])
     fn parses(maybe_ref: &Url) -> bool {
-        // let url = if let Ok(url) = Url::parse(maybe_ref) {
-        //     url
-        // } else {
-        //     return false;
-        // };
-
         if maybe_ref.scheme() == Self::scheme() {
             return true;
         }
