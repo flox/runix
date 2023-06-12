@@ -621,4 +621,74 @@ pub(super) mod tests {
                 .to_string()
         )
     }
+
+    #[test]
+    fn test_trap_at_git_boundary() {
+        let flake_test_dir = tempfile::tempdir().unwrap();
+
+        let git_dir = flake_test_dir
+            .path()
+            .canonicalize()
+            .unwrap()
+            .join("withgit");
+        fs::create_dir_all(&git_dir).unwrap();
+        fs::create_dir_all(git_dir.join(".git")).unwrap();
+
+        assert!(matches!(
+            FlakeRef::resolve_local(git_dir.to_string_lossy()).expect_err("should fail"),
+            ResolveLocalRefError::GitRepoBoundary(_)
+        ));
+    }
+
+    #[test]
+    fn test_inconsistent_dir_param() {
+        let flake_test_dir = tempfile::tempdir().unwrap();
+
+        let git_dir = flake_test_dir
+            .path()
+            .canonicalize()
+            .unwrap()
+            .join("withgit");
+        let flake_root = git_dir.join("inner");
+        fs::create_dir_all(&git_dir).unwrap();
+        fs::create_dir_all(git_dir.join(".git")).unwrap();
+        fs::create_dir_all(&flake_root).unwrap();
+        File::create(flake_root.join("flake.nix")).unwrap();
+
+        // /<git_root>/inner?dir=other
+        assert!(matches!(
+            dbg!(
+                FlakeRef::resolve_local(format!("{}?dir=other", flake_root.to_string_lossy()))
+                    .expect_err("should fail")
+            ),
+            ResolveLocalRefError::InconsistentDirParam(_, _)
+        ));
+
+        // /<git_root>/inner?dir=inner
+        // nix does resolves the path to
+        //    git+file://<git_root>?dir=inner
+        // and does not accept an existing `dir` parameter in that case to avoid ambuguity
+        assert!(matches!(
+            dbg!(
+                FlakeRef::resolve_local(format!("{}?dir=inner", flake_root.to_string_lossy()))
+                    .expect_err("should fail")
+            ),
+            ResolveLocalRefError::InconsistentDirParam(_, _)
+        ));
+
+        // /<git_root>?dir=inner
+        // if not given in a well-defined format, paths must directly point to the flake
+        // or a folder inside the flake.
+        // nix does not prescribe using the `dir` parameter as an alternative root to search for flakes.
+        // So even though we parse
+        //    /<git_root>/inner -> git+file://<git_root>?dir=inner
+        // It is not possible to reger to an inner path using a `dir` parameter in a non-well-defined url.
+        assert!(matches!(
+            dbg!(
+                FlakeRef::resolve_local(format!("{}?dir=inner", git_dir.to_string_lossy()))
+                    .expect_err("should fail")
+            ),
+            ResolveLocalRefError::GitRepoBoundary(_)
+        ));
+    }
 }
