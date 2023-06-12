@@ -525,7 +525,7 @@ pub(super) mod tests {
         let path = pathdiff::diff_paths(&basic, env::current_dir().unwrap()).unwrap();
 
         assert_eq!(
-            FlakeRef::resolve_local(&path.to_string_lossy())
+            FlakeRef::resolve_local(path.to_string_lossy())
                 .unwrap()
                 .to_string(),
             Url::parse(&format!("path:{}", basic.to_string_lossy()))
@@ -588,7 +588,7 @@ pub(super) mod tests {
         let git_dir_string = git_dir.to_string_lossy();
 
         assert_eq!(
-            FlakeRef::resolve_local(&flake_root.to_string_lossy())
+            FlakeRef::resolve_local(flake_root.to_string_lossy())
                 .unwrap()
                 .to_string(),
             Url::parse(&format!("git+file:{git_dir_string}?dir={flake_dir_name}"))
