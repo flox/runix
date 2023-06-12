@@ -39,21 +39,21 @@ impl IndirectRef {
 }
 
 impl FlakeRefSource for IndirectRef {
+    type ParseErr = ParseIndirectError;
+
     fn scheme() -> Cow<'static, str> {
         "flake".into()
     }
 
-    fn parses(maybe_ref: &str) -> bool {
-        if maybe_ref.starts_with("flake:") {
-            return true;
-        }
-
-        if maybe_ref.contains(':') {
-            return false;
-        }
-
-        ('a'..='z').any(|prefix| maybe_ref.starts_with(prefix))
-            || ('A'..='Z').any(|prefix| maybe_ref.starts_with(prefix))
+    fn from_url(url: Url) -> Result<Self, Self::ParseErr> {
+        let id = url.path().to_string();
+        let attributes = serde_urlencoded::from_str(url.query().unwrap_or_default())?;
+        let _type = Tag::Indirect;
+        Ok(IndirectRef {
+            id,
+            attributes,
+            _type,
+        })
     }
 }
 
@@ -82,20 +82,9 @@ impl FromStr for IndirectRef {
                 url_bad_scheme.scheme().to_string(),
                 Self::scheme().into_owned(),
             ))?,
-            Err(_) if Self::parses(s) && !s.starts_with(&*Self::scheme()) => {
-                Url::parse(&format!("{scheme}:{s}", scheme = Self::scheme()))?
-            },
             e => e?,
         };
-
-        let id = url.path().to_string();
-        let attributes = serde_urlencoded::from_str(url.query().unwrap_or_default())?;
-        let _type = Tag::Indirect;
-        Ok(IndirectRef {
-            id,
-            attributes,
-            _type,
-        })
+        Self::from_url(url)
     }
 }
 
@@ -116,6 +105,7 @@ mod tests {
 
     use super::*;
     use crate::flake_ref::tests::roundtrip_to;
+    use crate::flake_ref::FlakeRef;
 
     /// Ensure that an indirect flake ref serializes without information loss
     #[test]
@@ -141,7 +131,10 @@ mod tests {
         };
 
         assert_eq!(IndirectRef::from_str("flake:nixpkgs").unwrap(), expected);
-        assert_eq!(IndirectRef::from_str("nixpkgs").unwrap(), expected);
+        assert_eq!(
+            FlakeRef::from_str("nixpkgs").unwrap(),
+            FlakeRef::Indirect(expected)
+        );
     }
 
     #[test]
@@ -151,7 +144,8 @@ mod tests {
 
     #[test]
     fn roundtrip_attributes() {
-        roundtrip_to::<IndirectRef>("nixpkgs?ref=master&dir=1", "flake:nixpkgs?dir=1&ref=master");
+        // IndirectRef does not convert non-well-defined flake urls on its own anymore
+        roundtrip_to::<FlakeRef>("nixpkgs?ref=master&dir=1", "flake:nixpkgs?dir=1&ref=master");
     }
 
     #[test]

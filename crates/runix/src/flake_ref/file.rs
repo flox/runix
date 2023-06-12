@@ -165,13 +165,15 @@ impl FileProtocol for protocol::File {}
 impl FileProtocol for protocol::HTTP {}
 impl FileProtocol for protocol::HTTPS {}
 
-impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource
-    for FileBasedRef<Protocol, Type>
+impl<Protocol: FileProtocol, App: ApplicationProtocol> FlakeRefSource
+    for FileBasedRef<Protocol, App>
 {
+    type ParseErr = ParseFileError;
+
     fn scheme() -> Cow<'static, str> {
         format!(
             "{outer}+{inner}",
-            outer = Type::protocol(),
+            outer = App::protocol(),
             inner = Protocol::scheme()
         )
         .into()
@@ -187,61 +189,19 @@ impl<Protocol: FileProtocol, Type: ApplicationProtocol> FlakeRefSource
     ///    Nix supports tarballs as their own filetype.
     ///    In some cases this application can be deduced from the url,
     ///    e.g. by looking at the path and file extension. (See [ApplicationProtocol::required])
-    fn parses(maybe_ref: &str) -> bool {
-        if maybe_ref.starts_with(&format!(
-            "{scheme_with_application}:",
-            scheme_with_application = Self::scheme()
-        )) {
+    fn parses(maybe_ref: &Url) -> bool {
+        if maybe_ref.scheme() == Self::scheme() {
             return true;
         }
 
-        if !Url::parse(maybe_ref)
-            .map(|url| Type::required(&url))
-            .unwrap_or(false)
-        {
-            return maybe_ref.starts_with(&format!("{scheme}:", scheme = Protocol::scheme()));
+        if !App::required(maybe_ref) && maybe_ref.scheme() == Protocol::scheme() {
+            return true;
         }
 
         false
     }
-}
 
-impl<Protocol: FileProtocol, App: ApplicationProtocol> FileBasedRef<Protocol, App> {
-    pub fn new(url: WrappedUrl<Protocol>, attributes: FileAttributes) -> Self {
-        Self {
-            url,
-            attributes,
-            _type: Default::default(),
-        }
-    }
-}
-
-impl<Protocol: FileProtocol, App: ApplicationProtocol> Display for FileBasedRef<Protocol, App> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut url: Url = Url::parse(&format!(
-            "{application}+{url}",
-            application = self._type,
-            url = self.url
-        ))
-        .unwrap();
-
-        url.set_query(
-            serde_urlencoded::to_string(&self.attributes)
-                .ok()
-                .filter(|s| !s.is_empty())
-                .as_deref(),
-        );
-
-        write!(f, "{url}")
-    }
-}
-
-impl<Protocol: FileProtocol, App: ApplicationProtocol> FromStr for FileBasedRef<Protocol, App> {
-    type Err = ParseFileError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let url = Url::parse(s)?;
-
+    fn from_url(url: Url) -> Result<Self, Self::ParseErr> {
         // resolve the application part from the url schema.
         // report missing application if required ( see [ApplicationProtocol::required])
         // deduce from url
@@ -250,24 +210,22 @@ impl<Protocol: FileProtocol, App: ApplicationProtocol> FromStr for FileBasedRef<
         // - `url` the url with application prepended
         // - `wrapped` the parsed url with guaranteed scheme
         let (app, proto, url, wrapped) = if let Some((app, proto)) = &url.scheme().split_once('+') {
-            let wrapped = FileUrl::<Protocol>::from_str(s.trim_start_matches(&format!("{app}+")))?;
+            let wrapped = url
+                .to_string()
+                .trim_start_matches(&format!("{app}+"))
+                .parse()?;
 
             (app.to_string(), proto.to_string(), url, wrapped)
-        } else if App::required(&url) {
+        } else if !App::required(&url) {
+            let app = App::protocol();
+            let proto = url.scheme();
+            let fixed = Url::parse(&format!("{app}+{url}"))?;
+            (app.to_string(), proto.to_string(), fixed, url.try_into()?)
+        } else {
             return Err(ParseFileError::InvalidScheme(
                 Self::scheme().to_string(),
                 url.scheme().to_string(),
             ));
-        } else {
-            let app = App::protocol();
-            let proto = url.scheme();
-            let fixed = Url::parse(&format!("{app}+{url}"))?;
-            (
-                app.to_string(),
-                proto.to_string(),
-                fixed,
-                FileUrl::<Protocol>::from_str(s)?,
-            )
         };
 
         if app != App::protocol() || proto != Protocol::scheme() {
@@ -285,6 +243,49 @@ impl<Protocol: FileProtocol, App: ApplicationProtocol> FromStr for FileBasedRef<
             attributes,
             _type: Application::default(),
         })
+    }
+}
+
+impl<Protocol: FileProtocol, App: ApplicationProtocol> FileBasedRef<Protocol, App> {
+    pub fn new(url: WrappedUrl<Protocol>, attributes: FileAttributes) -> Self {
+        Self {
+            url,
+            attributes,
+            _type: Default::default(),
+        }
+    }
+}
+
+impl<Protocol: FileProtocol, App: ApplicationProtocol> Display for FileBasedRef<Protocol, App> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut url = if App::required(&self.url) {
+            Url::parse(&format!(
+                "{application}+{url}",
+                application = self._type,
+                url = self.url
+            ))
+            .unwrap()
+        } else {
+            self.url.clone()
+        };
+
+        url.set_query(
+            serde_urlencoded::to_string(&self.attributes)
+                .ok()
+                .filter(|s| !s.is_empty())
+                .as_deref(),
+        );
+
+        write!(f, "{url}")
+    }
+}
+
+impl<Protocol: FileProtocol, App: ApplicationProtocol> FromStr for FileBasedRef<Protocol, App> {
+    type Err = <Self as FlakeRefSource>::ParseErr;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let url = Url::parse(s)?;
+        Self::from_url(url)
     }
 }
 
@@ -320,7 +321,7 @@ mod tests {
     fn file_file_roundtrips() {
         roundtrip::<FileFileRef>("file:///somewhere/there");
         roundtrip_to::<FileFileRef>("file+file:///somewhere/there", "file:///somewhere/there");
-        roundtrip::<FileFileRef>("file+file:///somewhere/there?unpack=true");
+        roundtrip::<FileFileRef>("file:///somewhere/there?unpack=true");
     }
 
     #[test]
@@ -369,6 +370,6 @@ mod tests {
 
     #[test]
     fn test_parse_nar_hash() {
-        roundtrip::<FileFileRef>("file+file:///somewhere/there?narHash=sha256-MjeRjunqfGTBGU401nxIjs7PC9PZZ1FBCZp%2FbRB3C2M%3D")
+        roundtrip::<FileFileRef>("file:///somewhere/there?narHash=sha256-MjeRjunqfGTBGU401nxIjs7PC9PZZ1FBCZp%2FbRB3C2M%3D")
     }
 }

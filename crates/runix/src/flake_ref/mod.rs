@@ -1,11 +1,18 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt::Display;
+use std::os::unix::prelude::MetadataExt;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use chrono::{NaiveDateTime, TimeZone, Utc};
 use derive_more::{Display, From};
+use log::{debug, info};
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
+use url::Url;
 
 use self::file::{FileRef, TarballRef};
 use self::git::GitRef;
@@ -21,10 +28,18 @@ pub mod lock;
 pub mod path;
 pub mod protocol;
 
+pub static FLAKE_ID_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new("^[a-zA-Z][a-zA-Z0-9_-]*(/[a-zA-Z][a-zA-Z0-9_-])*\\??").unwrap());
+
 pub trait FlakeRefSource: FromStr + Display {
+    type ParseErr;
+
     fn scheme() -> Cow<'static, str>;
-    fn parses(maybe_ref: &str) -> bool {
-        maybe_ref.starts_with(&format!("{}:", Self::scheme()))
+
+    fn from_url(url: Url) -> Result<Self, Self::ParseErr>;
+
+    fn parses(maybe_ref: &Url) -> bool {
+        maybe_ref.scheme() == Self::scheme()
     }
 }
 
@@ -52,44 +67,219 @@ pub enum FlakeRef {
 impl FromStr for FlakeRef {
     type Err = ParseFlakeRefError;
 
+    /// Parse a flakeref string into a typed flakeref
+    ///
+    /// If not well defined, i.e. if the flakeref cannot be parsed as a url,
+    /// we resolve it either as an indirect flake or local path.
+    ///
+    /// Note: if not "well-defined" parsing flakerefs is "impure",
+    ///       i.e. depends on the state of the local system (files).
+    ///       The resulting flakeref however, serializes into well-defined form.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let flake_ref = match s {
-            _ if FileRef::<protocol::File>::parses(s) => {
-                s.parse::<FileRef<protocol::File>>()?.into()
+        let url = match Url::parse(s) {
+            Ok(well_defined) => well_defined,
+            Err(_) => {
+                let resolved = if FLAKE_ID_REGEX.is_match(s) {
+                    Url::parse(&format!("flake:{s}")).map_err(|e| {
+                        ParseFlakeRefError::Indirect(indirect::ParseIndirectError::Url(e))
+                    })?
+                } else {
+                    FlakeRef::resolve_local(s)?
+                };
+
+                info!("Could not parse flakeref as URL; resolved locally to '{resolved:?}'");
+
+                resolved
             },
-            _ if FileRef::<protocol::HTTP>::parses(s) => {
-                s.parse::<FileRef<protocol::HTTP>>()?.into()
+        };
+
+        let flake_ref = match url.scheme() {
+            _ if FileRef::<protocol::File>::parses(&url) => {
+                FileRef::<protocol::File>::from_url(url)?.into()
             },
-            _ if FileRef::<protocol::HTTPS>::parses(s) => {
-                s.parse::<FileRef<protocol::HTTPS>>()?.into()
+            _ if FileRef::<protocol::HTTP>::parses(&url) => {
+                FileRef::<protocol::HTTP>::from_url(url)?.into()
             },
-            _ if TarballRef::<protocol::File>::parses(s) => {
-                s.parse::<TarballRef<protocol::File>>()?.into()
+            _ if FileRef::<protocol::HTTPS>::parses(&url) => {
+                FileRef::<protocol::HTTPS>::from_url(url)?.into()
             },
-            _ if TarballRef::<protocol::HTTP>::parses(s) => {
-                s.parse::<TarballRef<protocol::HTTP>>()?.into()
+            _ if TarballRef::<protocol::File>::parses(&url) => {
+                TarballRef::<protocol::File>::from_url(url)?.into()
             },
-            _ if TarballRef::<protocol::HTTPS>::parses(s) => {
-                s.parse::<TarballRef<protocol::HTTPS>>()?.into()
+            _ if TarballRef::<protocol::HTTP>::parses(&url) => {
+                TarballRef::<protocol::HTTP>::from_url(url)?.into()
             },
-            _ if GitServiceRef::<service::Github>::parses(s) => {
-                s.parse::<GitServiceRef<service::Github>>()?.into()
+            _ if TarballRef::<protocol::HTTPS>::parses(&url) => {
+                TarballRef::<protocol::HTTPS>::from_url(url)?.into()
             },
-            _ if GitServiceRef::<service::Gitlab>::parses(s) => {
-                s.parse::<GitServiceRef<service::Gitlab>>()?.into()
+            _ if GitServiceRef::<service::Github>::parses(&url) => {
+                GitServiceRef::<service::Github>::from_url(url)?.into()
             },
-            _ if PathRef::parses(s) => s.parse::<PathRef>()?.into(),
-            _ if GitRef::<protocol::File>::parses(s) => s.parse::<GitRef<protocol::File>>()?.into(),
-            _ if GitRef::<protocol::SSH>::parses(s) => s.parse::<GitRef<protocol::SSH>>()?.into(),
-            _ if GitRef::<protocol::HTTP>::parses(s) => s.parse::<GitRef<protocol::HTTP>>()?.into(),
-            _ if GitRef::<protocol::HTTPS>::parses(s) => {
-                s.parse::<GitRef<protocol::HTTPS>>()?.into()
+            _ if GitServiceRef::<service::Gitlab>::parses(&url) => {
+                GitServiceRef::<service::Gitlab>::from_url(url)?.into()
             },
-            _ if IndirectRef::parses(s) => s.parse::<IndirectRef>()?.into(),
+            _ if PathRef::parses(&url) => PathRef::from_url(url)?.into(),
+            _ if GitRef::<protocol::File>::parses(&url) => {
+                GitRef::<protocol::File>::from_url(url)?.into()
+            },
+            _ if GitRef::<protocol::SSH>::parses(&url) => {
+                GitRef::<protocol::SSH>::from_url(url)?.into()
+            },
+            _ if GitRef::<protocol::HTTP>::parses(&url) => {
+                GitRef::<protocol::HTTP>::from_url(url)?.into()
+            },
+            _ if GitRef::<protocol::HTTPS>::parses(&url) => {
+                GitRef::<protocol::HTTPS>::from_url(url)?.into()
+            },
+            _ if IndirectRef::parses(&url) => IndirectRef::from_url(url)?.into(),
             _ => Err(ParseFlakeRefError::Invalid)?,
         };
         Ok(flake_ref)
     }
+}
+
+impl FlakeRef {
+    /// Resolve an abbreviated URL to local files
+    ///
+    /// Nix supports referring to local files/paths without an explicit scheme.
+    /// However, it distinguishes between flakes in git repositories
+    /// (disambiguated using `git+file://`) from "free" ones (`path:`).
+    ///
+    /// The logic for this in nix can be found at <https://github.com/NixOS/nix/blob/bf7dc3c7dc24f75fa623135750e8f10b8bcd94f9/src/libexpr/flake/flakeref.cc#L112C5-L197>
+    ///
+    /// This method implements a subset of this logic assuming we require the path to exist and to be a flake.
+    ///
+    /// In abstract we
+    ///
+    /// 1. locate a flake (by finding a `flake.nix` in all ancestors)
+    ///   - fail if directory does not exist
+    ///   - fail if skipping file system boundaries
+    ///   - fail if "exiting" a git repository (if there is one)
+    /// 2. locate the root of the "containing" git repo (if applicable)
+    ///   - check whether `.git/shallow` exists and track in the url params
+    ///   - ensure there is no `?dir=` param if flake is in a subdir
+    /// 3. construct a `file+git:` or `path:` url as required
+    pub fn resolve_local(s: impl AsRef<str>) -> Result<Url, ResolveLocalRefError> {
+        let s = s.as_ref();
+        let mut git_url =
+            Url::parse(&format!("git+file:{s}")).map_err(ResolveLocalRefError::ParseUrl)?;
+
+        let path = Path::new(git_url.path());
+        let path = path
+            .canonicalize()
+            .map_err(|err| ResolveLocalRefError::Canonicalize(path.to_path_buf(), err))?;
+
+        // update base to canonicalized path
+        git_url.set_path(&path.to_string_lossy());
+
+        let original_device = path
+            .metadata()
+            .map_err(|err| ResolveLocalRefError::Metadata(path.to_path_buf(), err))?
+            .dev();
+
+        let mut ancestors = path.ancestors();
+
+        let flake_root = loop {
+            let ancestor = ancestors
+                .next()
+                .ok_or_else(|| ResolveLocalRefError::NotFound(path.to_path_buf()))?;
+
+            debug!("looking for flake in {ancestor:?}");
+
+            {
+                let device = ancestor
+                    .metadata()
+                    .map_err(|err| ResolveLocalRefError::Metadata(path.to_path_buf(), err))?
+                    .dev();
+
+                if device != original_device {
+                    Err(ResolveLocalRefError::FileSystemBoundary(
+                        ancestor.to_path_buf(),
+                    ))?
+                }
+            }
+
+            if ancestor.join("flake.nix").exists() {
+                debug!("found flake in {ancestor:?}");
+                break ancestor;
+            }
+
+            if ancestor.join(".git").exists() {
+                Err(ResolveLocalRefError::GitRepoBoundary(
+                    ancestor.to_path_buf(),
+                ))?;
+            }
+        };
+
+        // if there is git
+        if let Some(git_root) = flake_root.ancestors().find(|ancestor| {
+            debug!("looking for git repo in {ancestor:?}");
+
+            ancestor.join(".git").exists()
+        }) {
+            let mut found = Url::parse("git+file:/").unwrap();
+            found.set_query(git_url.query());
+            found.set_path(&git_root.to_string_lossy());
+
+            if git_root != flake_root {
+                let dir_param = flake_root.strip_prefix(git_root).unwrap();
+
+                found
+                    .query_pairs_mut()
+                    .append_pair("dir", &dir_param.to_string_lossy())
+                    .finish();
+            }
+
+            if git_url
+                .query_pairs()
+                .collect::<HashMap<Cow<_>, Cow<_>>>()
+                .contains_key("dir")
+            {
+                Err(ResolveLocalRefError::InconsistentDirParam(
+                    git_url.to_string(),
+                    found.to_string(),
+                ))?;
+            }
+
+            if git_root.join(".git").join("shallow").exists() {
+                found.query_pairs_mut().append_pair("shallow", "1").finish();
+            }
+            Ok(found)
+        } else {
+            debug!("no git repo found, resolving as 'path:'");
+            let mut path_url = Url::parse("path:/").unwrap();
+            path_url.set_path(&path.to_string_lossy());
+            path_url.set_query(git_url.query());
+            Ok(path_url)
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum ResolveLocalRefError {
+    #[error(transparent)]
+    ParseUrl(#[from] url::ParseError),
+
+    #[error("Could not canonicalize path {0:?}: {1}")]
+    Canonicalize(PathBuf, std::io::Error),
+
+    #[error("Could not read metadata for dir: {0:?}: {1}")]
+    Metadata(PathBuf, std::io::Error),
+
+    #[error("Unable to find a flake before encountering file system boundary at {0:?}")]
+    FileSystemBoundary(PathBuf),
+
+    #[error("Unable to locate flake in git repo {0:?}")]
+    GitRepoBoundary(PathBuf),
+
+    #[error("could not find a flake in {0:?} or its parents")]
+    NotFound(PathBuf),
+
+    #[error("path {0:?} is not a flake (because it's not a directory)")]
+    NotADirectory(PathBuf),
+
+    #[error("flake URL '{0}' has an inconsistent 'dir' parameter, found flake in '{1} ")]
+    InconsistentDirParam(String, String),
 }
 
 #[derive(Debug, Error)]
@@ -104,7 +294,8 @@ pub enum ParseFlakeRefError {
     Indirect(#[from] indirect::ParseIndirectError),
     #[error(transparent)]
     Path(#[from] path::ParsePathRefError),
-
+    #[error(transparent)]
+    Local(#[from] ResolveLocalRefError),
     #[error("Invalid flakeref")]
     Invalid,
 }
@@ -200,7 +391,9 @@ pub(super) mod tests {
         roundtrip_to::<T>(input, input)
     }
 
+    use std::env;
     use std::fmt::Debug;
+    use std::fs::{self, File};
 
     use super::*;
 
@@ -266,8 +459,19 @@ pub(super) mod tests {
             dbg!(FlakeRef::from_str("path:/somewhere/there")).unwrap(),
             FlakeRef::Path(_)
         ));
+
+        let tempdir = tempfile::tempdir().unwrap();
+        File::create(tempdir.path().join("flake.nix")).unwrap();
+        assert!(matches!(
+            dbg!(FlakeRef::from_str(&tempdir.path().to_string_lossy())).unwrap(),
+            FlakeRef::Path(_)
+        ));
         assert!(matches!(
             dbg!(FlakeRef::from_str("git+file:///somewhere/there")).unwrap(),
+            FlakeRef::GitPath(_)
+        ));
+        assert!(matches!(
+            dbg!(FlakeRef::from_str("./")).unwrap(),
             FlakeRef::GitPath(_)
         ));
         assert!(matches!(
@@ -285,6 +489,206 @@ pub(super) mod tests {
         assert!(matches!(
             dbg!(FlakeRef::from_str("flake:nixpkgs")).unwrap(),
             FlakeRef::Indirect(_)
+        ));
+        assert!(matches!(
+            dbg!(FlakeRef::from_str("nixpkgs")).unwrap(),
+            FlakeRef::Indirect(_)
+        ));
+    }
+
+    /// basic
+    /// └── flake.nix
+    #[test]
+    fn test_resolve_absolute_non_git_local() {
+        let flake_test_dir = tempfile::tempdir().unwrap();
+
+        let basic = flake_test_dir.path().canonicalize().unwrap().join("basic");
+        fs::create_dir_all(&basic).unwrap();
+        File::create(basic.join("flake.nix")).unwrap();
+
+        let basic = basic.to_string_lossy();
+
+        assert_eq!(
+            FlakeRef::resolve_local(&basic).unwrap().to_string(),
+            Url::parse(&format!("path:{basic}")).unwrap().to_string()
+        )
+    }
+
+    #[test]
+    fn test_resolve_relative_non_git_local() {
+        let flake_test_dir = tempfile::tempdir().unwrap();
+
+        let basic = flake_test_dir.path().canonicalize().unwrap().join("basic");
+        fs::create_dir_all(&basic).unwrap();
+        File::create(basic.join("flake.nix")).unwrap();
+
+        let path = pathdiff::diff_paths(&basic, env::current_dir().unwrap()).unwrap();
+
+        assert_eq!(
+            FlakeRef::resolve_local(path.to_string_lossy())
+                .unwrap()
+                .to_string(),
+            Url::parse(&format!("path:{}", basic.to_string_lossy()))
+                .unwrap()
+                .to_string()
+        )
+    }
+
+    /// withgit
+    /// ├── .git
+    /// └── flake.nix
+    #[test]
+    fn test_resolve_absolute_git_local() {
+        let flake_test_dir = tempfile::tempdir().unwrap();
+
+        let git_dir = flake_test_dir
+            .path()
+            .canonicalize()
+            .unwrap()
+            .join("withgit");
+        fs::create_dir_all(&git_dir).unwrap();
+        fs::create_dir_all(git_dir.join(".git")).unwrap();
+        File::create(git_dir.join("flake.nix")).unwrap();
+
+        let git_dir_string = git_dir.to_string_lossy();
+
+        assert_eq!(
+            FlakeRef::resolve_local(&git_dir_string)
+                .unwrap()
+                .to_string(),
+            Url::parse(&format!("git+file:{git_dir_string}"))
+                .unwrap()
+                .to_string()
+        )
+    }
+
+    /// withgit
+    /// ├── .git
+    /// └── inner
+    ///     └── flake.nix
+    #[test]
+    fn test_resolve_absolute_git_local_nested() {
+        let flake_test_dir = tempfile::tempdir().unwrap();
+
+        let flake_dir_name = "inner";
+
+        let git_dir = flake_test_dir
+            .path()
+            .canonicalize()
+            .unwrap()
+            .join("withgit");
+        fs::create_dir_all(&git_dir).unwrap();
+        fs::create_dir_all(git_dir.join(".git")).unwrap();
+
+        let flake_root = git_dir.join(flake_dir_name);
+        fs::create_dir_all(&flake_root).unwrap();
+
+        File::create(flake_root.join("flake.nix")).unwrap();
+
+        let git_dir_string = git_dir.to_string_lossy();
+
+        assert_eq!(
+            FlakeRef::resolve_local(flake_root.to_string_lossy())
+                .unwrap()
+                .to_string(),
+            Url::parse(&format!("git+file:{git_dir_string}?dir={flake_dir_name}"))
+                .unwrap()
+                .to_string()
+        )
+    }
+
+    #[test]
+    fn test_resolve_relative_git_local() {
+        let flake_test_dir = tempfile::tempdir().unwrap();
+
+        let git_dir = flake_test_dir
+            .path()
+            .canonicalize()
+            .unwrap()
+            .join("withgit");
+        fs::create_dir_all(&git_dir).unwrap();
+        fs::create_dir_all(git_dir.join(".git")).unwrap();
+        File::create(git_dir.join("flake.nix")).unwrap();
+
+        let relative_path = pathdiff::diff_paths(&git_dir, env::current_dir().unwrap()).unwrap();
+
+        assert_eq!(
+            FlakeRef::resolve_local(relative_path.to_string_lossy())
+                .unwrap()
+                .to_string(),
+            Url::parse(&format!("git+file:{}", git_dir.to_string_lossy()))
+                .unwrap()
+                .to_string()
+        )
+    }
+
+    #[test]
+    fn test_trap_at_git_boundary() {
+        let flake_test_dir = tempfile::tempdir().unwrap();
+
+        let git_dir = flake_test_dir
+            .path()
+            .canonicalize()
+            .unwrap()
+            .join("withgit");
+        fs::create_dir_all(&git_dir).unwrap();
+        fs::create_dir_all(git_dir.join(".git")).unwrap();
+
+        assert!(matches!(
+            FlakeRef::resolve_local(git_dir.to_string_lossy()).expect_err("should fail"),
+            ResolveLocalRefError::GitRepoBoundary(_)
+        ));
+    }
+
+    #[test]
+    fn test_inconsistent_dir_param() {
+        let flake_test_dir = tempfile::tempdir().unwrap();
+
+        let git_dir = flake_test_dir
+            .path()
+            .canonicalize()
+            .unwrap()
+            .join("withgit");
+        let flake_root = git_dir.join("inner");
+        fs::create_dir_all(&git_dir).unwrap();
+        fs::create_dir_all(git_dir.join(".git")).unwrap();
+        fs::create_dir_all(&flake_root).unwrap();
+        File::create(flake_root.join("flake.nix")).unwrap();
+
+        // /<git_root>/inner?dir=other
+        assert!(matches!(
+            dbg!(
+                FlakeRef::resolve_local(format!("{}?dir=other", flake_root.to_string_lossy()))
+                    .expect_err("should fail")
+            ),
+            ResolveLocalRefError::InconsistentDirParam(_, _)
+        ));
+
+        // /<git_root>/inner?dir=inner
+        // nix resolves the path to
+        //    git+file://<git_root>?dir=inner
+        // and does not accept an existing `dir` parameter in that case to avoid ambuguity
+        assert!(matches!(
+            dbg!(
+                FlakeRef::resolve_local(format!("{}?dir=inner", flake_root.to_string_lossy()))
+                    .expect_err("should fail")
+            ),
+            ResolveLocalRefError::InconsistentDirParam(_, _)
+        ));
+
+        // /<git_root>?dir=inner
+        // if not given in a well-defined format, paths must directly point to the flake
+        // or a folder inside the flake.
+        // nix does not prescribe using the `dir` parameter as an alternative root to search for flakes.
+        // So even though we parse
+        //    /<git_root>/inner -> git+file://<git_root>?dir=inner
+        // It is not possible to refer to an inner path using a `dir` parameter in a non-well-defined url.
+        assert!(matches!(
+            dbg!(
+                FlakeRef::resolve_local(format!("{}?dir=inner", git_dir.to_string_lossy()))
+                    .expect_err("should fail")
+            ),
+            ResolveLocalRefError::GitRepoBoundary(_)
         ));
     }
 }

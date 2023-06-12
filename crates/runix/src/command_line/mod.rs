@@ -73,7 +73,7 @@ impl CommandExt for std::process::Command {
         debug!(
             "Invoking {executable}:\nenv = {env:?}\nargs = {args:#?}",
             executable = shell_escape::escape(self.get_program().to_string_lossy()),
-            env = self.get_envs().into_iter().collect::<HashMap<_, _>>(),
+            env = self.get_envs().collect::<HashMap<_, _>>(),
             args = self
                 .get_args()
                 .map(|arg| arg.to_string_lossy().to_string())

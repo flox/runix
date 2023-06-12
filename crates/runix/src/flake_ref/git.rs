@@ -1,6 +1,6 @@
 use std::borrow::Cow;
-use std::fmt::Display;
-use std::path::PathBuf;
+use std::fmt::{Debug, Display};
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ pub struct GitAttributes {
     pub dir: Option<PathBuf>,
 }
 
-pub trait GitProtocol: Protocol {}
+pub trait GitProtocol: Protocol + Debug {}
 impl GitProtocol for protocol::File {}
 impl GitProtocol for protocol::SSH {}
 impl GitProtocol for protocol::HTTP {}
@@ -57,8 +57,45 @@ impl<Protocol: GitProtocol> GitRef<Protocol> {
 }
 
 impl<Protocol: GitProtocol> FlakeRefSource for GitRef<Protocol> {
+    type ParseErr = ParseGitError;
+
     fn scheme() -> Cow<'static, str> {
         format!("git+{inner}", inner = Protocol::scheme()).into()
+    }
+
+    fn from_url(url: Url) -> Result<Self, Self::ParseErr> {
+        if url.scheme() != Self::scheme() {
+            return Err(ParseGitError::InvalidScheme(
+                Self::scheme().to_string(),
+                url.scheme().to_string(),
+            ));
+        }
+
+        let attributes: GitAttributes =
+            serde_urlencoded::from_str(url.query().unwrap_or_default())?;
+
+        // Special Urls (File, Http, Https, Ftp) are by spec required to be absolute
+        // since we are storing the internal Url in a spec compliant way,
+        // we need to canonicalize/resolve relative paths.
+        // This differs from the implementation found in nix which uses a non-spec-compliant
+        // url implementation which supports `file:relative/path` urls
+        // <https://github.com/NixOS/nix/blob/bf7dc3c7dc24f75fa623135750e8f10b8bcd94f9/src/libfetchers/git.cc#L261>
+        let url = {
+            let mut inner_url = Url::parse(url.as_str().trim_start_matches("git+"))?;
+
+            let mut path = Path::new(url.path()).to_path_buf();
+            if path.is_relative() {
+                path = path
+                    .canonicalize()
+                    .map_err(|e| ParseGitError::Canonicalize(path, e))?;
+            }
+
+            inner_url.set_path(&format!("{}", path.to_string_lossy()));
+
+            GitUrl::<Protocol>::try_from(inner_url)?
+        };
+
+        Ok(GitRef { url, attributes })
     }
 }
 
@@ -80,20 +117,7 @@ impl<Protocol: GitProtocol> FromStr for GitRef<Protocol> {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url = Url::parse(s)?;
-
-        if url.scheme() != Self::scheme() {
-            return Err(ParseGitError::InvalidScheme(
-                Self::scheme().to_string(),
-                url.scheme().to_string(),
-            ));
-        }
-
-        let attributes: GitAttributes =
-            serde_urlencoded::from_str(url.query().unwrap_or_default())?;
-
-        let url = GitUrl::<Protocol>::from_str(s.trim_start_matches("git+"))?;
-
-        Ok(GitRef { url, attributes })
+        Self::from_url(url)
     }
 }
 
@@ -109,6 +133,8 @@ pub enum ParseGitError {
     NoRepo,
     #[error("Couldn't parse query: {0}")]
     Query(#[from] serde_urlencoded::de::Error),
+    #[error("Could not resolve relative path '{0:?}': {1}")]
+    Canonicalize(PathBuf, std::io::Error),
 }
 
 #[cfg(test)]
@@ -168,5 +194,54 @@ mod tests {
             serde_json::from_value::<GitRef<protocol::SSH>>(expected).unwrap(),
             flakeref
         );
+    }
+
+    /// assert that relative file urls are resolved to git urls correctly
+    #[test]
+    fn relative_git_urls() {
+        let url = GitRef::<protocol::File>::from_str("git+file:..").unwrap();
+        assert_eq!(
+            url.url.path(),
+            std::env::current_dir()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .to_string_lossy()
+        );
+        dbg!(url.to_string());
+
+        let url = GitRef::<protocol::File>::from_str("git+file:../").unwrap();
+        dbg!(&url);
+
+        assert_eq!(
+            url.url.path(),
+            std::env::current_dir()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .to_string_lossy()
+        );
+        dbg!(url.to_string());
+
+        // with "//" an absolute path is required per the Url spec for file urls
+        let url = GitRef::<protocol::File>::from_str("git+file:///var/www").unwrap();
+        dbg!(&url);
+        assert_eq!(url.url.path(), "/var/www");
+        dbg!(url.to_string());
+
+        // with "//" an absolute path is required per the Url spec for file urls
+        // relative paths such as var/www below are parsed as
+        //
+        //     var/www
+        //        ^^^^ path
+        //     ^^^ host
+        // This also affects `./some/folder` where `.` will be interpreted as a host
+        let url = GitRef::<protocol::File>::from_str("git+file://var/www").unwrap();
+        dbg!(&url);
+        assert_ne!(url.url.path(), "/var/www");
+        assert_eq!(url.url.host_str(), Some("var"));
+        assert_eq!(url.url.path(), "/www");
+
+        dbg!(url.to_string());
     }
 }

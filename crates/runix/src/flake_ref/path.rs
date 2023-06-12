@@ -42,29 +42,13 @@ impl PathRef {
 }
 
 impl FlakeRefSource for PathRef {
+    type ParseErr = ParsePathRefError;
+
     fn scheme() -> Cow<'static, str> {
         "path".into()
     }
 
-    fn parses(maybe_ref: &str) -> bool {
-        ["path:", "/", "."]
-            .iter()
-            .any(|prefix| maybe_ref.starts_with(prefix))
-    }
-}
-
-impl FromStr for PathRef {
-    type Err = ParsePathRefError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let url = match Url::parse(s) {
-            Ok(url) => url,
-            Err(_) if Self::parses(s) && !s.starts_with(&*Self::scheme()) => {
-                Url::parse(&format!("path:{s}"))?
-            },
-            e => e?,
-        };
-
+    fn from_url(url: Url) -> Result<Self, Self::ParseErr> {
         if url.scheme() != Self::scheme() {
             return Err(ParsePathRefError::InvalidScheme(
                 Self::scheme().to_string(),
@@ -76,6 +60,15 @@ impl FromStr for PathRef {
             serde_urlencoded::from_str(url.query().unwrap_or_default())?;
 
         Ok(PathRef { path, attributes })
+    }
+}
+
+impl FromStr for PathRef {
+    type Err = ParsePathRefError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let url = Url::parse(s)?;
+        Self::from_url(url)
     }
 }
 
@@ -114,16 +107,13 @@ mod tests {
     use chrono::{TimeZone, Utc};
 
     use super::*;
+    use crate::flake_ref::FlakeRef;
 
     #[test]
     fn parses_path_flakeref() {
         assert_eq!(
-            PathRef::from_str("/some/where").unwrap(),
-            PathRef::from_str("path:///some/where").unwrap()
-        );
-        assert_eq!(
-            PathRef::from_str("./some/where").unwrap(),
-            PathRef::from_str("path:./some/where").unwrap()
+            FlakeRef::from_str("path:/can/be/missing").unwrap(),
+            FlakeRef::Path(PathRef::from_str("path:/can/be/missing").unwrap())
         );
     }
 
