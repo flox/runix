@@ -196,7 +196,7 @@ mod tests {
         );
     }
 
-    /// assert that relative file urls are rosolved to git urls correctly
+    /// assert that relative file urls are resolved to git urls correctly
     #[test]
     fn relative_git_urls() {
         let url = GitRef::<protocol::File>::from_str("git+file:..").unwrap();
