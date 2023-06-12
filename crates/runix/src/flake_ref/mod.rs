@@ -682,7 +682,7 @@ pub(super) mod tests {
         // nix does not prescribe using the `dir` parameter as an alternative root to search for flakes.
         // So even though we parse
         //    /<git_root>/inner -> git+file://<git_root>?dir=inner
-        // It is not possible to reger to an inner path using a `dir` parameter in a non-well-defined url.
+        // It is not possible to refer to an inner path using a `dir` parameter in a non-well-defined url.
         assert!(matches!(
             dbg!(
                 FlakeRef::resolve_local(format!("{}?dir=inner", git_dir.to_string_lossy()))
