@@ -123,3 +123,28 @@ pub struct EvalArgs {
     pub apply: Option<Apply>,
     pub installable: Option<InstallableArg>,
 }
+
+/// `nix store gc --dry-run` flag
+#[derive(Clone, From, Deref, Debug)]
+#[from(forward)]
+pub struct DryRun(bool);
+impl Flag for DryRun {
+    const FLAG: &'static str = "--dry-run";
+    const FLAG_TYPE: FlagType<Self> = FlagType::switch(false);
+}
+
+/// `nix store gc --max <n>` option
+#[derive(Clone, From, Deref, Debug, Default)]
+#[from(forward)]
+pub struct Max(u32);
+impl Flag for Max {
+    const FLAG: &'static str = "--max";
+    const FLAG_TYPE: FlagType<Self> = FlagType::arg();
+}
+
+/// `nix store gc` options
+#[derive(Debug, Default, Clone, ToArgs)]
+pub struct StoreGcArgs {
+    pub dry_run: Option<DryRun>,
+    pub max: Option<Max>,
+}
