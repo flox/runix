@@ -15,6 +15,7 @@ use crate::arguments::{
     EvalArgs,
     InstallableArg,
     InstallablesArgs,
+    StoreGcArgs,
 };
 use crate::command_line::flag::{Flag, FlagType};
 use crate::command_line::{Group, JsonCommand, NixCliCommand, TypedCommand};
@@ -86,7 +87,7 @@ impl NixCliCommand for FlakeInit {
     const SUBCOMMAND: &'static [&'static str] = &["flake", "init"];
 }
 
-/// `nix flake init --template <TEMPLATE>` flag
+/// `nix flake metadata <FLAKE_REF>` flag
 #[derive(Deref, Debug, Clone, From)]
 #[from(forward)]
 pub struct FlakeRefArg(FlakeRef);
@@ -226,4 +227,18 @@ impl NixCliCommand for Bundle {
 impl JsonCommand for Bundle {}
 impl TypedCommand for Bundle {
     type Output = ();
+}
+
+/// `nix store gc` Command
+#[derive(Debug, Default, Clone)]
+pub struct StoreGc {
+    // store gc doesn't accept any args other than its own and global Nix args
+    pub store_gc: StoreGcArgs,
+}
+
+impl NixCliCommand for StoreGc {
+    type Own = StoreGcArgs;
+
+    const OWN_ARGS: Group<Self, Self::Own> = Some(|d| d.store_gc.clone());
+    const SUBCOMMAND: &'static [&'static str] = &["store", "gc"];
 }
