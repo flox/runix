@@ -232,6 +232,7 @@ impl TypedCommand for Bundle {
 /// `nix store gc` Command
 #[derive(Debug, Default, Clone)]
 pub struct StoreGc {
+    // store gc doesn't accept any args other than its own and global Nix args
     pub store_gc: StoreGcArgs,
 }
 
