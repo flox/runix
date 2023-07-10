@@ -43,7 +43,7 @@ pub struct GitAttributes {
 
     pub dir: Option<PathBuf>,
 
-    #[serde(flatten)]
+    #[serde(rename = "lastModified")]
     pub last_modified: Option<LastModified>,
 }
 
@@ -148,7 +148,7 @@ mod tests {
 
     use super::*;
 
-    static FLAKE_REF: &'_ str = "git+file:///somewhere/on/the/drive?shallow=false&submodules=false&ref=feature%2Fxyz&dir=abc";
+    static FLAKE_REF: &'_ str = "git+file:///somewhere/on/the/drive?shallow=false&submodules=false&ref=feature%2Fxyz&dir=abc&lastModified=1666570118";
 
     #[test]
     fn parses_git_path_flakeref() {
@@ -173,7 +173,7 @@ mod tests {
     #[test]
     fn parses_unsescaped_qs() {
         assert_eq!(
-            "git+file:///somewhere/on/the/drive?shallow=false&submodules=false&ref=feature/xyz&dir=abc"
+            "git+file:///somewhere/on/the/drive?shallow=false&submodules=false&ref=feature/xyz&dir=abc&lastModified=1666570118"
                 .parse::<GitRef<protocol::File>>()
                 .unwrap()
                 .to_string(),
@@ -199,6 +199,21 @@ mod tests {
             serde_json::from_value::<GitRef<protocol::SSH>>(expected).unwrap(),
             flakeref
         );
+    }
+
+    #[test]
+    fn to_from_json1() {
+        let expected = json!({
+          "lastModified": 1688730350,
+          "narHash": "sha256-Gzcv5BkK4SIQVbxqMLxIBbJJcC0k6nGjgfve0X5lSzw=",
+          "ref": "refs/heads/main",
+          "rev": "0630fc9307852b30ea4c5915b6b74fa9db51d641",
+          "revCount": 542,
+          "type": "git",
+          "url": "ssh://git@github.com/flox/flox"
+        });
+
+        serde_json::from_value::<GitRef<protocol::SSH>>(expected).expect("should parse");
     }
 
     /// assert that relative file urls are resolved to git urls correctly

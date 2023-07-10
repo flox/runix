@@ -38,10 +38,10 @@ pub struct GitServiceAttributes {
 
     pub rev: Option<Rev>,
 
-    #[serde(flatten)]
+    #[serde(rename = "narHash")]
     pub nar_hash: Option<NarHash>,
 
-    #[serde(flatten)]
+    #[serde(rename = "lastModified")]
     pub last_modified: Option<LastModified>,
 }
 

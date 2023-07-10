@@ -58,6 +58,7 @@ pub struct InvalidRev;
 pub struct RevCount(u64);
 
 #[derive(Debug, Deserialize)]
+#[serde(untagged)]
 enum StringOrInt {
     String(String),
     Int(u64),
