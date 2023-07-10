@@ -8,7 +8,7 @@ use serde_with::skip_serializing_none;
 use thiserror::Error;
 use url::Url;
 
-use super::lock::{Rev, RevCount};
+use super::lock::{LastModified, Rev, RevCount};
 use super::protocol::{self, Protocol, WrappedUrl, WrappedUrlParseError};
 use super::FlakeRefSource;
 
@@ -42,6 +42,9 @@ pub struct GitAttributes {
     pub reference: Option<String>,
 
     pub dir: Option<PathBuf>,
+
+    #[serde(flatten)]
+    pub last_modified: Option<LastModified>,
 }
 
 pub trait GitProtocol: Protocol + Debug {}
@@ -140,6 +143,7 @@ pub enum ParseGitError {
 #[cfg(test)]
 mod tests {
 
+    use chrono::{TimeZone, Utc};
     use serde_json::json;
 
     use super::*;
@@ -157,6 +161,7 @@ mod tests {
                 rev_count: None,
                 dir: Some("abc".into()),
                 rev: None,
+                last_modified: Some(Utc.timestamp_opt(1666570118, 0).unwrap().into()),
                 reference: Some("feature/xyz".to_string()),
             },
         };
