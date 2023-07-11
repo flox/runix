@@ -13,7 +13,7 @@ pub type FlakeLock = serde_json::Value;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FlakeMetadata {
-    pub description: String,
+    pub description: Option<String>,
     pub last_modified: flake_ref::Timestamp,
 
     pub locks: FlakeLock,
