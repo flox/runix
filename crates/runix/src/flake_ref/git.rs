@@ -147,6 +147,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use crate::flake_ref::FlakeRef;
 
     static FLAKE_REF: &'_ str = "git+file:///somewhere/on/the/drive?shallow=false&submodules=false&ref=feature%2Fxyz&dir=abc&lastModified=1666570118";
 
@@ -202,7 +203,7 @@ mod tests {
     }
 
     #[test]
-    fn to_from_json1() {
+    fn from_json() {
         let expected = json!({
           "lastModified": 1688730350,
           "narHash": "sha256-Gzcv5BkK4SIQVbxqMLxIBbJJcC0k6nGjgfve0X5lSzw=",
@@ -212,8 +213,8 @@ mod tests {
           "type": "git",
           "url": "ssh://git@github.com/flox/flox"
         });
-
-        serde_json::from_value::<GitRef<protocol::SSH>>(expected).expect("should parse");
+        serde_json::from_value::<GitRef<protocol::SSH>>(expected.clone()).expect("should parse");
+        serde_json::from_value::<FlakeRef>(expected).expect("should parse");
     }
 
     /// assert that relative file urls are resolved to git urls correctly
