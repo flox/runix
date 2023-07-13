@@ -31,7 +31,8 @@ jobs:
       run: |
         # flox activate does not activate with the current flake's self context :X
         flox build .#rustfmt
-        ./result/bin/cargo-fmt --check
+        export PATH="./result/bin:$PATH"
+        flox activate -e .#runix -- cargo fmt --check
 
     - name: run tests
       run: flox activate -e .#runix -- cargo test
