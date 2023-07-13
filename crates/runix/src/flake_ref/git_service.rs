@@ -219,6 +219,8 @@ pub enum ParseGitServiceError {
 mod tests {
     use std::path::Path;
 
+    use chrono::{TimeZone, Utc};
+
     use super::*;
     use crate::flake_ref::tests::{roundtrip, roundtrip_to};
 
@@ -281,23 +283,19 @@ mod tests {
 
     #[test]
     fn parses_github_flakeref() {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&GitServiceRef::<service::Github> {
-                owner: "flox".into(),
-                repo: "nixpkgs".into(),
-                attributes: GitServiceAttributes {
-                    host: None,
-                    dir: None,
-                    reference: Some("unstable".into()),
-                    rev: None,
-                    nar_hash: None,
-                    last_modified: None,
-                },
-                _type: GitService::default(),
-            })
-            .unwrap()
-        );
+        let expected = GitServiceRef::<service::Github> {
+            owner: "flox".into(),
+            repo: "nixpkgs".into(),
+            attributes: GitServiceAttributes {
+                host: None,
+                dir: None,
+                reference: Some("unstable".into()),
+                rev: Some(Rev::from_str("0630fc9307852b30ea4c5915b6b74fa9db51d641").unwrap()),
+                nar_hash: Some("sha256-Gzcv5BkK4SIQVbxqMLxIBbJJcC0k6nGjgfve0X5lSzw=".into()),
+                last_modified: Some(Utc.timestamp_opt(1688730350, 0).unwrap().into()),
+            },
+            _type: GitService::default(),
+        };
 
         let flakeref = serde_json::from_str::<GitServiceRef<service::Github>>(
             r#"
@@ -305,26 +303,15 @@ mod tests {
   "owner": "flox",
   "repo": "nixpkgs",
   "ref": "unstable",
-  "type": "github"
+  "type": "github",
+  "lastModified": 1688730350,
+  "rev": "0630fc9307852b30ea4c5915b6b74fa9db51d641",
+  "narHash": "sha256-Gzcv5BkK4SIQVbxqMLxIBbJJcC0k6nGjgfve0X5lSzw="
 }
         "#,
         )
         .expect("should parse");
 
-        dbg!(&flakeref);
-
-        assert_eq!(flakeref, GitServiceRef {
-            owner: "flox".into(),
-            repo: "nixpkgs".into(),
-            attributes: GitServiceAttributes {
-                host: None,
-                dir: None,
-                reference: Some("unstable".into()),
-                rev: None,
-                nar_hash: None,
-                last_modified: None,
-            },
-            _type: GitService::default(),
-        });
+        assert_eq!(flakeref, expected);
     }
 }
