@@ -162,6 +162,10 @@ impl<Protocol: GitProtocol> Display for GitRef<Protocol> {
 
         let url = pairs.finish();
 
+        if matches!(url.query(), Some("")) {
+            url.set_query(None)
+        }
+
         write!(f, "{url}")
     }
 }
