@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -10,7 +11,7 @@ use url::Url;
 
 use super::lock::{LastModified, Rev, RevCount};
 use super::protocol::{self, Protocol, WrappedUrl, WrappedUrlParseError};
-use super::FlakeRefSource;
+use super::{FlakeRefSource, Timestamp, TimestampDeserialize};
 
 pub type GitUrl<Protocol> = WrappedUrl<Protocol>;
 
@@ -74,8 +75,34 @@ impl<Protocol: GitProtocol> FlakeRefSource for GitRef<Protocol> {
             ));
         }
 
-        let attributes: GitAttributes =
-            serde_urlencoded::from_str(url.query().unwrap_or_default())?;
+        let mut pairs = url
+            .query_pairs()
+            .map(|(k, v)| (k, v.to_string()))
+            .collect::<HashMap<_, _>>();
+
+        let attributes = GitAttributes {
+            shallow: pairs.remove("shallow").map(|v| v == "1"),
+            submodules: pairs.remove("submodules").map(|v| v == "1"),
+            all_refs: pairs.remove("allRefs").map(|v| v == "1"),
+            rev_count: pairs
+                .remove("revCount")
+                .map(|v| v.parse::<u64>())
+                .map_or(Ok(None), |v| v.map(Some))
+                .map_err(|e| ParseGitError::Query(e.to_string()))?
+                .map(RevCount),
+            rev: pairs
+                .remove("rev")
+                .map(|v| Rev::from_str(&v))
+                .map_or(Ok(None), |v| v.map(Some))
+                .map_err(|e| ParseGitError::Query(e.to_string()))?,
+            reference: pairs.remove("ref"),
+            dir: pairs.remove("dir").map(PathBuf::from),
+            last_modified: pairs
+                .remove("lastModified")
+                .map(|v| Timestamp::try_from(TimestampDeserialize::TsString(v)))
+                .map_or(Ok(None), |v| v.map(Some))
+                .map_err(|e| ParseGitError::Query(e.to_string()))?,
+        };
 
         // Special Urls (File, Http, Https, Ftp) are by spec required to be absolute
         // since we are storing the internal Url in a spec compliant way,
@@ -105,11 +132,35 @@ impl<Protocol: GitProtocol> FlakeRefSource for GitRef<Protocol> {
 impl<Protocol: GitProtocol> Display for GitRef<Protocol> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut url = Url::parse(&format!("git+{url}", url = self.url)).unwrap();
-        url.set_query(
-            serde_urlencoded::to_string(&self.attributes)
-                .ok()
-                .as_deref(),
-        );
+
+        let mut pairs = url.query_pairs_mut();
+
+        if let Some(v) = self.attributes.all_refs {
+            pairs.append_pair("allRefs", &(v as u8).to_string());
+        }
+        if let Some(ref v) = self.attributes.dir {
+            pairs.append_pair("dir", &v.to_string_lossy());
+        }
+        if let Some(ref v) = self.attributes.last_modified {
+            pairs.append_pair("lastModified", &v.0.timestamp().to_string());
+        }
+        if let Some(ref v) = self.attributes.reference {
+            pairs.append_pair("ref", v);
+        }
+        if let Some(ref v) = self.attributes.rev {
+            pairs.append_pair("rev", v);
+        }
+        if let Some(ref v) = self.attributes.rev_count {
+            pairs.append_pair("revCount", &v.0.to_string());
+        }
+        if let Some(v) = self.attributes.shallow {
+            pairs.append_pair("shallow", &(v as u8).to_string());
+        }
+        if let Some(v) = self.attributes.submodules {
+            pairs.append_pair("submodules", &(v as u8).to_string());
+        }
+
+        let url = pairs.finish();
 
         write!(f, "{url}")
     }
@@ -135,7 +186,7 @@ pub enum ParseGitError {
     #[error("No repo specified")]
     NoRepo,
     #[error("Couldn't parse query: {0}")]
-    Query(#[from] serde_urlencoded::de::Error),
+    Query(String),
     #[error("Could not resolve relative path '{0:?}': {1}")]
     Canonicalize(PathBuf, std::io::Error),
 }
@@ -149,7 +200,7 @@ mod tests {
     use super::*;
     use crate::flake_ref::FlakeRef;
 
-    static FLAKE_REF: &'_ str = "git+file:///somewhere/on/the/drive?shallow=false&submodules=false&ref=feature%2Fxyz&dir=abc&lastModified=1666570118";
+    static FLAKE_REF: &'_ str = "git+file:///somewhere/on/the/drive?dir=abc&lastModified=1666570118&ref=feature%2Fxyz&shallow=0&submodules=0";
 
     #[test]
     fn parses_git_path_flakeref() {
@@ -174,11 +225,30 @@ mod tests {
     #[test]
     fn parses_unsescaped_qs() {
         assert_eq!(
-            "git+file:///somewhere/on/the/drive?shallow=false&submodules=false&ref=feature/xyz&dir=abc&lastModified=1666570118"
+            "git+file:///somewhere/on/the/drive?shallow=0&submodules=0&ref=feature/xyz&dir=abc&lastModified=1666570118"
                 .parse::<GitRef<protocol::File>>()
                 .unwrap()
                 .to_string(),
             FLAKE_REF)
+    }
+
+    #[test]
+    fn parses_bools() {
+        let expected: GitRef<protocol::File> = GitRef {
+            url: "file:///somewhere/on/the/drive".parse().unwrap(),
+            attributes: GitAttributes {
+                shallow: Some(false),
+                submodules: Some(true),
+                all_refs: Some(false), // sic only "1" is parsed as true
+                ..Default::default()
+            },
+        };
+        assert_eq!(
+            "git+file:///somewhere/on/the/drive?shallow=0&submodules=1&allRefs=true"
+                .parse::<GitRef<protocol::File>>()
+                .unwrap(),
+            expected
+        )
     }
 
     #[test]
@@ -211,7 +281,9 @@ mod tests {
           "rev": "0630fc9307852b30ea4c5915b6b74fa9db51d641",
           "revCount": 542,
           "type": "git",
-          "url": "ssh://git@github.com/flox/flox"
+          "url": "ssh://git@github.com/flox/flox",
+          "shallow": true,
+          "submodules": false,
         });
         serde_json::from_value::<GitRef<protocol::SSH>>(expected.clone()).expect("should parse");
         serde_json::from_value::<FlakeRef>(expected).expect("should parse");
