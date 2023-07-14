@@ -367,8 +367,6 @@ pub(super) mod tests {
     use std::fmt::Debug;
     use std::fs::{self, File};
 
-    use serde_json::json;
-
     use super::*;
 
     #[test]
