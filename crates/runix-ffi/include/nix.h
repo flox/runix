@@ -3,6 +3,8 @@
 #include "rust/cxx.h"
 #include "runix-ffi/src/lib.rs.h"
 
+#include <nix/flake/flake.hh>
+#include <nix/fetchers.hh>
 #include <nix/error.hh>
 
 namespace rust
@@ -29,5 +31,6 @@ namespace rust
 namespace runix
 {
 
+    rust::String parse_flakeref(rust::Str url);
 
 } // namespace runix
