@@ -88,6 +88,10 @@ impl Display for PathRef {
                 .as_deref(),
         );
 
+        if matches!(url.query(), Some("")) {
+            url.set_query(None)
+        }
+
         write!(f, "{url}")
     }
 }

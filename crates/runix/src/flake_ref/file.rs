@@ -1,8 +1,8 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::str::FromStr;
 
-use derive_more::Deref;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use thiserror::Error;
@@ -11,7 +11,7 @@ use url::Url;
 use self::application::{Application, ApplicationProtocol};
 use super::lock::NarHash;
 use super::protocol::{self, Protocol, WrappedUrl, WrappedUrlParseError};
-use super::{BoolReprs, FlakeRefSource};
+use super::FlakeRefSource;
 
 pub type FileUrl<Protocol> = WrappedUrl<Protocol>;
 
@@ -40,13 +40,10 @@ pub struct FileAttributes {
     #[serde(rename = "narHash")]
     pub nar_hash: Option<NarHash>,
 
-    pub unpack: Option<Unpack>,
+    pub unpack: Option<bool>,
 
     pub name: Option<String>,
 }
-
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Deref, Clone)]
-pub struct Unpack(#[serde(deserialize_with = "BoolReprs::deserialize_bool")] bool);
 
 pub mod application {
     use std::borrow::Cow;
@@ -235,8 +232,16 @@ impl<Protocol: FileProtocol, App: ApplicationProtocol> FlakeRefSource
             ));
         };
 
-        let attributes: FileAttributes =
-            serde_urlencoded::from_str(url.query().unwrap_or_default())?;
+        let mut pairs = url
+            .query_pairs()
+            .map(|(k, v)| (k, v.to_string()))
+            .collect::<HashMap<_, _>>();
+
+        let attributes = FileAttributes {
+            nar_hash: pairs.remove("narHash"),
+            unpack: pairs.remove("unpack").map(|v| v == "1"),
+            name: pairs.remove("name"),
+        };
 
         Ok(FileBasedRef {
             url: wrapped,
@@ -269,12 +274,21 @@ impl<Protocol: FileProtocol, App: ApplicationProtocol> Display for FileBasedRef<
             self.url.clone()
         };
 
-        url.set_query(
-            serde_urlencoded::to_string(&self.attributes)
-                .ok()
-                .filter(|s| !s.is_empty())
-                .as_deref(),
-        );
+        let mut query = url.query_pairs_mut();
+        if let Some(ref nar_hash) = self.attributes.nar_hash {
+            query.append_pair("narHash", nar_hash);
+        }
+        if let Some(unpack) = self.attributes.unpack {
+            query.append_pair("unpack", &(unpack as u8).to_string());
+        }
+        if let Some(ref name) = self.attributes.name {
+            query.append_pair("name", name);
+        }
+        let url = query.finish();
+
+        if matches!(url.query(), Some("")) {
+            url.set_query(None)
+        }
 
         write!(f, "{url}")
     }
@@ -307,6 +321,7 @@ pub enum ParseFileError {
 mod tests {
 
     use super::*;
+    use crate::flake_ref::protocol::File;
     use crate::flake_ref::tests::{roundtrip, roundtrip_to};
 
     type FileFileRef = super::FileRef<protocol::File>;
@@ -318,24 +333,48 @@ mod tests {
     type HttpsTarballRef = super::TarballRef<protocol::HTTPS>;
 
     #[test]
+    fn serialize_bool() {
+        let file_ref = FileRef {
+            url: WrappedUrl::<File>::try_from(Url::parse("file:///somewhere/there").unwrap())
+                .unwrap(),
+            _type: Default::default(),
+            attributes: FileAttributes {
+                nar_hash: None,
+                unpack: Some(true),
+                name: None,
+            },
+        };
+
+        assert_eq!(file_ref.to_string(), "file:///somewhere/there?unpack=1");
+        assert_eq!(
+            FileRef::<File>::from_str("file:///somewhere/there?unpack=1").unwrap(),
+            file_ref
+        );
+    }
+
+    #[test]
     fn file_file_roundtrips() {
         roundtrip::<FileFileRef>("file:///somewhere/there");
         roundtrip_to::<FileFileRef>("file+file:///somewhere/there", "file:///somewhere/there");
-        roundtrip::<FileFileRef>("file:///somewhere/there?unpack=true");
+        roundtrip::<FileFileRef>("file:///somewhere/there?unpack=1");
+        roundtrip_to::<FileFileRef>(
+            "file:///somewhere/there?unpack=true",
+            "file:///somewhere/there?unpack=0",
+        );
     }
 
     #[test]
     fn file_http_roundtrips() {
         roundtrip::<HttpFileRef>("http://somewhere/there");
         roundtrip_to::<HttpFileRef>("file+http://somewhere/there", "http://somewhere/there");
-        roundtrip::<HttpFileRef>("http://somewhere/there?unpack=true");
+        roundtrip::<HttpFileRef>("http://somewhere/there?unpack=1");
     }
 
     #[test]
     fn file_https_roundtrips() {
         roundtrip::<HttpsFileRef>("https://somewhere/there");
         roundtrip_to::<HttpsFileRef>("file+https://somewhere/there", "https://somewhere/there");
-        roundtrip::<HttpsFileRef>("https://somewhere/there?unpack=true");
+        roundtrip::<HttpsFileRef>("https://somewhere/there?unpack=1");
     }
 
     #[test]
@@ -345,7 +384,7 @@ mod tests {
             "tarball+file:///somewhere/there.tar.gz",
             "file:///somewhere/there.tar.gz",
         );
-        roundtrip::<FileTarballRef>("tarball+file:///somewhere/there?unpack=true");
+        roundtrip::<FileTarballRef>("tarball+file:///somewhere/there?unpack=1");
     }
 
     #[test]
@@ -355,7 +394,7 @@ mod tests {
             "tarball+http://somewhere/there.tar.gz",
             "http://somewhere/there.tar.gz",
         );
-        roundtrip::<HttpTarballRef>("tarball+http://somewhere/there?unpack=true");
+        roundtrip::<HttpTarballRef>("tarball+http://somewhere/there?unpack=1");
     }
 
     #[test]
@@ -365,7 +404,7 @@ mod tests {
             "tarball+https://somewhere/there.tar.gz",
             "https://somewhere/there.tar.gz",
         );
-        roundtrip::<HttpsTarballRef>("tarball+https://somewhere/there?unpack=true");
+        roundtrip::<HttpsTarballRef>("tarball+https://somewhere/there?unpack=1");
     }
 
     #[test]

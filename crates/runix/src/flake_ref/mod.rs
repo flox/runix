@@ -10,7 +10,7 @@ use derive_more::{Display, From};
 use log::{debug, info};
 use once_cell::sync::Lazy;
 use regex::Regex;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use url::Url;
 
@@ -303,7 +303,8 @@ pub enum ParseFlakeRefError {
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, From, Clone)]
 #[serde(try_from = "TimestampDeserialize")]
 pub struct Timestamp(
-    #[serde(serialize_with = "chrono::serde::ts_seconds::serialize")] chrono::DateTime<chrono::Utc>,
+    #[serde(serialize_with = "chrono::serde::ts_seconds::serialize")]
+    pub  chrono::DateTime<chrono::Utc>,
 );
 
 #[derive(Deserialize, Debug)]
@@ -338,35 +339,6 @@ pub enum ParseTimeError {
     FromInt(i64),
     #[error(transparent)]
     FromString(#[from] chrono::ParseError),
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-pub enum BoolReprs {
-    String(String),
-    Bool(bool),
-}
-
-impl TryFrom<BoolReprs> for bool {
-    type Error = <bool as FromStr>::Err;
-
-    fn try_from(value: BoolReprs) -> Result<Self, Self::Error> {
-        match value {
-            BoolReprs::String(s) => s.parse::<bool>(),
-            BoolReprs::Bool(b) => Ok(b),
-        }
-    }
-}
-
-impl BoolReprs {
-    pub fn deserialize_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        BoolReprs::deserialize(deserializer)?
-            .try_into()
-            .map_err(serde::de::Error::custom)
-    }
 }
 
 #[cfg(test)]

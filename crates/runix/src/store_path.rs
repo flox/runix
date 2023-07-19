@@ -33,7 +33,7 @@ impl StorePath {
     ///
     /// let path = StorePath::from_path("/nix/store/7rjqb838snvvxcmpvck1smfxhkwzqal5-python3-3.10.10")
     ///     .unwrap();
-    /// assert_eq!(path.prefix(), Path::new(STORE_PREFIX.as_str()));
+    /// assert_eq!(path.prefix(), STORE_PREFIX.as_path())
     /// ```
     pub fn prefix(&self) -> &Path {
         &self.prefix
@@ -48,7 +48,7 @@ impl StorePath {
     /// let path = StorePath::from_path("/nix/store/7rjqb838snvvxcmpvck1smfxhkwzqal5-python3-3.10.10")
     ///     .unwrap();
     /// assert_eq!(
-    ///     path.name(),
+    ///     path.basename(),
     ///     "7rjqb838snvvxcmpvck1smfxhkwzqal5-python3-3.10.10"
     /// );
     /// ```

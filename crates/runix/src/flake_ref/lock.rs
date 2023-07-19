@@ -55,9 +55,10 @@ pub struct InvalidRev;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 #[serde(try_from = "StringOrInt")]
-pub struct RevCount(u64);
+pub struct RevCount(pub u64);
 
 #[derive(Debug, Deserialize)]
+#[serde(untagged)]
 enum StringOrInt {
     String(String),
     Int(u64),
