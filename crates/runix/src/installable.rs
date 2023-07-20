@@ -3,12 +3,13 @@
 use std::fmt::Display;
 use std::str::FromStr;
 
-use derive_more::{AsRef, IntoIterator};
+use derive_more::{AsRef, Display, From, IntoIterator};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use thiserror::Error;
 
 use crate::flake_ref::{FlakeRef, ParseFlakeRefError};
+use crate::store_path::StorePath;
 
 /// regex listing valid characters for attributes
 ///
@@ -22,9 +23,15 @@ use crate::flake_ref::{FlakeRef, ParseFlakeRefError};
 static VALID_ATTRIBUTE: Lazy<Regex> =
     Lazy::new(|| Regex::new("^([a-zA-Z0-9-._~!$&'()*+,;=:%@?/ ]*)$").unwrap());
 
-/// A simplified installable representation
+#[derive(Clone, Debug, Display, Eq, From, PartialEq)]
+pub enum Installable {
+    FlakeAttribute(FlakeAttribute),
+    StorePath(StorePath),
+    // TODO Nix file and Nix expression
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Installable {
+pub struct FlakeAttribute {
     pub flakeref: FlakeRef,
     pub attr_path: AttrPath,
 }
@@ -202,7 +209,7 @@ impl Display for Attribute {
     }
 }
 
-impl FromStr for Installable {
+impl FromStr for FlakeAttribute {
     type Err = ParseInstallableError;
 
     /// Parsing an installable string
@@ -225,11 +232,11 @@ impl FromStr for Installable {
     /// in order to separate the parsing of the components.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.split_once('#') {
-            Some((flakeref, attr_path)) => Ok(Installable {
+            Some((flakeref, attr_path)) => Ok(FlakeAttribute {
                 flakeref: flakeref.parse()?,
                 attr_path: attr_path.parse()?,
             }),
-            None => Ok(Installable {
+            None => Ok(FlakeAttribute {
                 flakeref: s.parse()?,
                 attr_path: AttrPath::default(),
             }),
@@ -237,7 +244,7 @@ impl FromStr for Installable {
     }
 }
 
-impl Display for Installable {
+impl Display for FlakeAttribute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.flakeref)?;
         if !self.attr_path.is_empty() {
