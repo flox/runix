@@ -9,7 +9,7 @@ use self::common::NixCommonArgs;
 use self::config::NixConfigArgs;
 use crate::command_line::ToArgs;
 use crate::default::flag::{Flag, FlagType};
-use crate::installable::Installable;
+use crate::installable::{FlakeAttribute, Installable};
 
 pub mod common;
 pub mod config;
@@ -50,6 +50,12 @@ pub struct InstallableArg(Option<Installable>);
 impl ToArgs for InstallableArg {
     fn to_args(&self) -> Vec<String> {
         self.0.iter().map(|i| i.to_string()).collect()
+    }
+}
+
+impl From<FlakeAttribute> for InstallableArg {
+    fn from(flake_attribute: FlakeAttribute) -> Self {
+        Self(Some(flake_attribute.into()))
     }
 }
 
