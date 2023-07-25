@@ -9,7 +9,7 @@ use serde_with::skip_serializing_none;
 use thiserror::Error;
 use url::Url;
 
-use super::lock::{LastModified, Rev, RevCount};
+use super::lock::{LastModified, NarHash, Rev, RevCount};
 use super::protocol::{self, Protocol, WrappedUrl, WrappedUrlParseError};
 use super::{FlakeRefSource, Timestamp, TimestampDeserialize};
 
@@ -46,6 +46,9 @@ pub struct GitAttributes {
 
     #[serde(rename = "lastModified")]
     pub last_modified: Option<LastModified>,
+
+    #[serde(rename = "narHash")]
+    pub nar_hash: Option<NarHash>,
 }
 
 pub trait GitProtocol: Protocol + Debug {}
@@ -102,6 +105,7 @@ impl<Protocol: GitProtocol> FlakeRefSource for GitRef<Protocol> {
                 .map(|v| Timestamp::try_from(TimestampDeserialize::TsString(v)))
                 .map_or(Ok(None), |v| v.map(Some))
                 .map_err(|e| ParseGitError::Query(e.to_string()))?,
+            nar_hash: pairs.remove("narHash"),
         };
 
         // Special Urls (File, Http, Https, Ftp) are by spec required to be absolute
@@ -158,6 +162,9 @@ impl<Protocol: GitProtocol> Display for GitRef<Protocol> {
         }
         if let Some(v) = self.attributes.submodules {
             pairs.append_pair("submodules", &(v as u8).to_string());
+        }
+        if let Some(ref nar_hash) = self.attributes.nar_hash {
+            pairs.append_pair("narHash", nar_hash);
         }
 
         let url = pairs.finish();
@@ -219,6 +226,7 @@ mod tests {
                 rev: None,
                 last_modified: Some(Utc.timestamp_opt(1666570118, 0).unwrap().into()),
                 reference: Some("feature/xyz".to_string()),
+                nar_hash: None,
             },
         };
 
