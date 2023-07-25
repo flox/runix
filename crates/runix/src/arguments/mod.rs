@@ -199,3 +199,31 @@ pub struct PathInfoArgs {
     pub sigs: Option<Sigs>,
     pub size: Option<Size>,
 }
+
+/// `nix store sign --recursive` flag
+///
+/// Technically an extended installable flag
+#[derive(Clone, From, Deref, Debug)]
+#[from(forward)]
+pub struct Recursive(bool);
+impl Flag for Recursive {
+    const FLAG: &'static str = "--recursive";
+    const FLAG_TYPE: FlagType<Self> = FlagType::switch(false);
+}
+
+/// `nix store sign --key-file <FILE>` option
+
+#[derive(Clone, From, Deref, Debug)]
+#[from(forward)]
+pub struct KeyFile(PathBuf);
+impl Flag for KeyFile {
+    const FLAG: &'static str = "--key-file";
+    const FLAG_TYPE: FlagType<Self> = FlagType::os_str_arg();
+}
+
+/// `nix store sign` options
+#[derive(Debug, Clone, ToArgs)]
+pub struct StoreSignArgs {
+    pub key_file: KeyFile,
+    pub recursive: Option<Recursive>,
+}
