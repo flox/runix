@@ -17,6 +17,7 @@ use crate::arguments::{
     InstallablesArgs,
     PathInfoArgs,
     StoreGcArgs,
+    StoreSignArgs,
 };
 use crate::command_line::flag::{Flag, FlagType};
 use crate::command_line::{Group, JsonCommand, NixCliCommand, TypedCommand};
@@ -268,4 +269,26 @@ impl NixCliCommand for PathInfo {
 impl JsonCommand for PathInfo {}
 impl TypedCommand for PathInfo {
     type Output = Vec<Narinfo>;
+}
+
+/// `nix store sign` Command
+#[derive(Debug, Clone)]
+pub struct StoreSign {
+    /// `store sign` (and some other commands) support additional installable options,
+    /// `--all`, `--derivation` and `--recursive`,
+    /// which are not yet formalized and thus tentatively included in [StoreSignArgs].
+    pub store_sign: StoreSignArgs,
+    pub installables: InstallablesArgs,
+    pub eval: EvaluationArgs,
+    pub flake: FlakeArgs,
+}
+
+impl NixCliCommand for StoreSign {
+    type Own = StoreSignArgs;
+
+    const EVAL_ARGS: Group<Self, EvaluationArgs> = Some(|d| d.eval.clone());
+    const FLAKE_ARGS: Group<Self, FlakeArgs> = Some(|d| d.flake.clone());
+    const INSTALLABLES: Group<Self, InstallablesArgs> = Some(|d| d.installables.clone());
+    const OWN_ARGS: Group<Self, Self::Own> = Some(|d| d.store_sign.clone());
+    const SUBCOMMAND: &'static [&'static str] = &["store", "sign"];
 }
