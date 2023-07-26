@@ -158,6 +158,7 @@ pub struct StoreGcArgs {
 /// `nix copy` options
 #[derive(Debug, Default, Clone, ToArgs)]
 pub struct CopyArgs {
+    // TODO --no-check-sigs, --substitute-on-destination
     pub from: Option<CopyFrom>,
     pub to: Option<CopyTo>,
 }
