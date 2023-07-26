@@ -1,7 +1,7 @@
 {
   inputs,
-  commitizen,
-  rustfmt,
+  commitizen-with-bump,
+  rustfmt-nightly,
 }:
 inputs.shellHooks.lib.run {
   src = ../..;
@@ -12,5 +12,8 @@ inputs.shellHooks.lib.run {
     commitizen.enable = true;
   };
   settings.clippy.denyWarnings = true;
-  tools = {inherit commitizen rustfmt;};
+  tools = {
+    rustfmt = rustfmt-nightly;
+    commitizen = commitizen-with-bump;
+  };
 }
