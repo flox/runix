@@ -51,7 +51,7 @@ jobs:
   check:
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    name: Check runix ( All Systems )
+    name: Check runix
     needs: check-systems
     steps:
       - if: >-
