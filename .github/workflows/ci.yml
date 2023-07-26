@@ -9,7 +9,7 @@ on:
 
 jobs:
 
-  check:
+  check-systems:
     name: Check runix ${{ matrix.os }}
     strategy:
       matrix:
@@ -47,3 +47,16 @@ jobs:
 
       - name: run tests
         run: nix develop '.#rust-env' -c cargo test
+
+  check:
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    name: Check runix ( All Systems )
+    needs: check-systems
+    steps:
+      - if: >-
+          ${{ 
+              contains( needs.*.result, 'failure'   ) ||
+              contains( needs.*.result, 'cancelled' )
+           }}
+        run: exit 1
