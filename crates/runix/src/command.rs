@@ -274,8 +274,9 @@ impl TypedCommand for PathInfo {
 /// `nix store sign` Command
 #[derive(Debug, Clone)]
 pub struct StoreSign {
-    /// `store sign` supports some extended installable options
-    /// which are also available elsewhere and not yet formalized.
+    /// `store sign` (and some other commands) support additional installable options,
+    /// `--all`, `--derivation` and `--recursive`,
+    /// which are not yet formalized and thus tentatively included in [StoreSignArgs].
     pub store_sign: StoreSignArgs,
     pub installables: InstallablesArgs,
     pub eval: EvaluationArgs,
