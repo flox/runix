@@ -235,6 +235,21 @@ mod tests {
     }
 
     #[test]
+    fn parses_nar_hash() {
+        let url = "file:///somewhere/on/the/drive?narHash=sha256-Gzcv5BkK4SIQVbxqMLxIBbJJcC0k6nGjgfve0X5lSzw=".to_string();
+        let attrs: GitRef<protocol::File> = GitRef {
+            url: "file:///somewhere/on/the/drive".parse().unwrap(),
+            attributes: GitAttributes {
+                nar_hash: Some("sha256-Gzcv5BkK4SIQVbxqMLxIBbJJcC0k6nGjgfve0X5lSzw=".to_string()),
+                ..Default::default()
+            },
+        };
+
+        assert_eq!(GitRef::from_str(&url).unwrap(), attrs);
+        assert_eq!(attrs.to_string(), url);
+    }
+
+    #[test]
     fn parses_unsescaped_qs() {
         assert_eq!(
             "git+file:///somewhere/on/the/drive?shallow=0&submodules=0&ref=feature/xyz&dir=abc&lastModified=1666570118"
