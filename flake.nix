@@ -4,6 +4,8 @@
   inputs.flox-floxpkgs.url = "github:flox/floxpkgs";
   inputs.nixpkgs.url = "dummy";
   inputs.nixpkgs.follows = "flox-floxpkgs/nixpkgs/nixpkgs";
+  # XXX: Do not override `nixpkgs'
+  inputs.parser-util.url = "github:flox/parser-util/v0";
 
   # Declaration of external resources
   # =================================
@@ -14,5 +16,10 @@
   };
   # =================================
 
-  outputs = args @ {flox-floxpkgs, ...}: flox-floxpkgs.project args (_: {});
+  outputs = args @ {
+    flox-floxpkgs,
+    parser-util,
+    ...
+  }:
+    flox-floxpkgs.project args (_: {});
 }
