@@ -25,14 +25,14 @@ jobs:
         github-access-token: ${{ secrets.NIX_GIT_TOKEN }}
 
     - name: check clippy
-      run: flox activate -e .#runix -- cargo clippy
+      run: flox develop runix -c cargo clippy
 
     - name: check format
       run: |
         # flox activate does not activate with the current flake's self context :X
         flox build .#rustfmt
         export PATH="./result/bin:$PATH"
-        flox activate -e .#runix -- cargo fmt --check
+        flox develop runix -c cargo fmt --check
 
     - name: run tests
-      run: flox activate -e .#runix -- cargo test
+      run: flox develop runix -c cargo test
