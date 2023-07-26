@@ -19,10 +19,14 @@ jobs:
       with:
         fetch-depth: 0
 
+    # TODO: Don't use pre-release when we push changes that make
+    #       `flox develop rust-env -c CMD;' work.
+    #       This should be ~ at the beginning of July 2023.
     - name: Install flox
       uses: flox/install-flox-action@main
       with:
         github-access-token: ${{ secrets.NIX_GIT_TOKEN }}
+        flox-installable-uri: "github:flox/floxpkgs#flox-prerelease.fromCatalog"
 
     - name: check clippy
       run: flox develop rust-env -c cargo clippy
