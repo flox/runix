@@ -15,6 +15,7 @@ pub mod common;
 pub mod config;
 pub mod eval;
 pub mod flake;
+pub mod legacy;
 pub mod source;
 
 /// Nix arguments
