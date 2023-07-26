@@ -11,7 +11,7 @@
   inputs,
   parser-util ? inputs.parser-util.packages.parser-util,
   rustfmt-nightly,
-  commitizen-with-bump,
+  commitizen,
 }:
 rustPlatform.buildRustPackage {
   pname = "runix";
@@ -39,7 +39,7 @@ rustPlatform.buildRustPackage {
   ];
 
   propagatedBuildInputs = [parser-util];
-  nativeBuildInputs = [commitizen-with-bump clippy rustfmt-nightly];
+  nativeBuildInputs = [commitizen clippy rustfmt-nightly];
 
   RUST_SRC_PATH = rustPlatform.rustLibSrc.outPath;
   PARSER_UTIL = parser-util.outPath + "/bin/parser-util";
