@@ -24,20 +24,20 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v22
-          with:
-            extra_nix_config: |
-              experimental-features = nix-command flakes
-              access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-              substituters = https://cache.nixos.org
-              trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-              max-jobs = auto
-              cores = 0
-              substitute = true
-              builders-use-substitutes = true
-              fallback = true
-              connect-timeout = 5
-              stalled-download-timeout = 90
-              timeout = 0
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+            substituters = https://cache.nixos.org
+            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+            max-jobs = auto
+            cores = 0
+            substitute = true
+            builders-use-substitutes = true
+            fallback = true
+            connect-timeout = 5
+            stalled-download-timeout = 90
+            timeout = 0
 
       - name: check clippy
         run: nix develop '.#rust-env' -c cargo clippy
