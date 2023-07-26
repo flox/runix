@@ -11,6 +11,7 @@ use crate::arguments::source::SourceArgs;
 use crate::arguments::{
     BuildArgs,
     BundleArgs,
+    CopyArgs,
     DevelopArgs,
     EvalArgs,
     InstallableArg,
@@ -244,6 +245,27 @@ impl NixCliCommand for StoreGc {
 
     const OWN_ARGS: Group<Self, Self::Own> = Some(|d| d.store_gc.clone());
     const SUBCOMMAND: &'static [&'static str] = &["store", "gc"];
+}
+
+/// `nix copy` Command
+///
+/// Called `NixCopy` instead of `Copy` to avoid confusion with the `Copy` trait
+#[derive(Debug, Default, Clone)]
+pub struct NixCopy {
+    pub copy_args: CopyArgs,
+    pub eval: EvaluationArgs,
+    pub flake: FlakeArgs,
+    pub installables: InstallablesArgs,
+}
+
+impl NixCliCommand for NixCopy {
+    type Own = CopyArgs;
+
+    const EVAL_ARGS: Group<Self, EvaluationArgs> = Some(|d| d.eval.clone());
+    const FLAKE_ARGS: Group<Self, FlakeArgs> = Some(|d| d.flake.clone());
+    const INSTALLABLES: Group<Self, InstallablesArgs> = Some(|d| d.installables.clone());
+    const OWN_ARGS: Group<Self, Self::Own> = Some(|d| d.copy_args.clone());
+    const SUBCOMMAND: &'static [&'static str] = &["copy"];
 }
 
 /// `nix path-info` Command
