@@ -236,7 +236,7 @@ mod tests {
 
     #[test]
     fn parses_nar_hash() {
-        let url = "file:///somewhere/on/the/drive?narHash=sha256-Gzcv5BkK4SIQVbxqMLxIBbJJcC0k6nGjgfve0X5lSzw=".to_string();
+        let url = "git+file:///somewhere/on/the/drive?narHash=sha256-Gzcv5BkK4SIQVbxqMLxIBbJJcC0k6nGjgfve0X5lSzw%3D".to_string();
         let attrs: GitRef<protocol::File> = GitRef {
             url: "file:///somewhere/on/the/drive".parse().unwrap(),
             attributes: GitAttributes {
