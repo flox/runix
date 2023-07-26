@@ -271,7 +271,7 @@ impl TypedCommand for PathInfo {
     type Output = Vec<Narinfo>;
 }
 
-/// `nix store gc` Command
+/// `nix store sign` Command
 #[derive(Debug, Clone)]
 pub struct StoreSign {
     /// `store sign` supports some extended installable options

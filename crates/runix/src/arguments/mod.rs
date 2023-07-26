@@ -212,7 +212,6 @@ impl Flag for Recursive {
 }
 
 /// `nix store sign --key-file <FILE>` option
-
 #[derive(Clone, From, Deref, Debug)]
 #[from(forward)]
 pub struct KeyFile(PathBuf);
