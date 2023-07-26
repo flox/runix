@@ -194,6 +194,7 @@
 //! we plan to approach native bindings to Nix commands and concepts.
 
 use std::error::Error;
+use std::path::PathBuf;
 
 /// Rust abstraction over the nix command line
 /// Candidate for a standalone library to build arbitrary Nix commands in a safe manner
@@ -206,8 +207,12 @@ pub mod command_line;
 pub mod flake_metadata;
 pub mod flake_ref;
 pub mod installable;
+pub mod narinfo;
 pub mod registry;
 pub mod store_path;
+
+// TODO drop in favor of store_path::StorePath
+pub type DerivationPath = PathBuf;
 
 pub use command_line as default;
 use serde_json::Value;

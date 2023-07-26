@@ -9,7 +9,7 @@ use self::common::NixCommonArgs;
 use self::config::NixConfigArgs;
 use crate::command_line::ToArgs;
 use crate::default::flag::{Flag, FlagType};
-use crate::installable::Installable;
+use crate::installable::{FlakeAttribute, Installable};
 
 pub mod common;
 pub mod config;
@@ -50,6 +50,12 @@ pub struct InstallableArg(Option<Installable>);
 impl ToArgs for InstallableArg {
     fn to_args(&self) -> Vec<String> {
         self.0.iter().map(|i| i.to_string()).collect()
+    }
+}
+
+impl From<FlakeAttribute> for InstallableArg {
+    fn from(flake_attribute: FlakeAttribute) -> Self {
+        Self(Some(flake_attribute.into()))
     }
 }
 
@@ -147,4 +153,49 @@ impl Flag for Max {
 pub struct StoreGcArgs {
     pub dry_run: Option<DryRun>,
     pub max: Option<Max>,
+}
+
+/// `nix path-info --closure-size` flag
+#[derive(Clone, From, Deref, Debug)]
+#[from(forward)]
+pub struct ClosureSize(bool);
+impl Flag for ClosureSize {
+    const FLAG: &'static str = "--closure-size";
+    const FLAG_TYPE: FlagType<Self> = FlagType::switch(false);
+}
+
+/// `nix path-info --human-readable` flag
+#[derive(Clone, From, Deref, Debug)]
+#[from(forward)]
+pub struct HumanReadable(bool);
+impl Flag for HumanReadable {
+    const FLAG: &'static str = "--human-readable";
+    const FLAG_TYPE: FlagType<Self> = FlagType::switch(false);
+}
+
+/// `nix path-info --sigs` flag
+#[derive(Clone, From, Deref, Debug)]
+#[from(forward)]
+pub struct Sigs(bool);
+impl Flag for Sigs {
+    const FLAG: &'static str = "--sigs";
+    const FLAG_TYPE: FlagType<Self> = FlagType::switch(false);
+}
+
+/// `nix path-info --size` flag
+#[derive(Clone, From, Deref, Debug)]
+#[from(forward)]
+pub struct Size(bool);
+impl Flag for Size {
+    const FLAG: &'static str = "--size";
+    const FLAG_TYPE: FlagType<Self> = FlagType::switch(false);
+}
+
+/// `nix path-info` options
+#[derive(Debug, Default, Clone, ToArgs)]
+pub struct PathInfoArgs {
+    pub closure_size: Option<ClosureSize>,
+    pub human_readable: Option<HumanReadable>,
+    pub sigs: Option<Sigs>,
+    pub size: Option<Size>,
 }

@@ -15,12 +15,14 @@ use crate::arguments::{
     EvalArgs,
     InstallableArg,
     InstallablesArgs,
+    PathInfoArgs,
     StoreGcArgs,
 };
 use crate::command_line::flag::{Flag, FlagType};
 use crate::command_line::{Group, JsonCommand, NixCliCommand, TypedCommand};
 use crate::flake_ref::FlakeRef;
 use crate::installable::Installable;
+use crate::narinfo::Narinfo;
 
 /// `nix build` Command
 #[derive(Debug, Default, Clone)]
@@ -241,4 +243,29 @@ impl NixCliCommand for StoreGc {
 
     const OWN_ARGS: Group<Self, Self::Own> = Some(|d| d.store_gc.clone());
     const SUBCOMMAND: &'static [&'static str] = &["store", "gc"];
+}
+
+/// `nix path-info` Command
+#[derive(Debug, Default, Clone)]
+pub struct PathInfo {
+    pub eval: EvaluationArgs,
+    pub flake: FlakeArgs,
+    pub source: SourceArgs,
+    pub installables: InstallablesArgs,
+    pub path_info: PathInfoArgs,
+}
+
+impl NixCliCommand for PathInfo {
+    type Own = PathInfoArgs;
+
+    const EVAL_ARGS: Group<Self, EvaluationArgs> = Some(|d| d.eval.clone());
+    const FLAKE_ARGS: Group<Self, FlakeArgs> = Some(|d| d.flake.clone());
+    const INSTALLABLES: Group<Self, InstallablesArgs> = Some(|d| d.installables.clone());
+    const OWN_ARGS: Group<Self, PathInfoArgs> = Some(|d| d.path_info.clone());
+    const SOURCE_ARGS: Group<Self, SourceArgs> = Some(|d| d.source.clone());
+    const SUBCOMMAND: &'static [&'static str] = &["path-info"];
+}
+impl JsonCommand for PathInfo {}
+impl TypedCommand for PathInfo {
+    type Output = Vec<Narinfo>;
 }
