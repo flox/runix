@@ -8,9 +8,14 @@ use serde_with::skip_serializing_none;
 use thiserror::Error;
 use url::Url;
 
+use crate::uri_parser::{
+    extract_dir_attr, extract_host_attr, extract_last_modified_attr, extract_nar_hash_attr,
+    extract_ref_attr, extract_rev_attr, UriParseError,
+};
+
 use self::service::GitService;
 use super::lock::{LastModified, NarHash, Rev, RevOrRef};
-use super::FlakeRefSource;
+use super::{Attrs, FlakeRefSource};
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct GitServiceRef<Service> {
@@ -23,7 +28,7 @@ pub struct GitServiceRef<Service> {
     #[serde(rename = "type")]
     #[serde(bound(deserialize = "GitService<Service>: Deserialize<'de>"))]
     #[serde(bound(serialize = "GitService<Service>: Serialize"))]
-    _type: GitService<Service>,
+    pub(crate) _type: GitService<Service>,
 }
 
 #[skip_serializing_none]
@@ -45,6 +50,27 @@ pub struct GitServiceAttributes {
     pub last_modified: Option<LastModified>,
 }
 
+impl TryFrom<Attrs> for GitServiceAttributes {
+    type Error = UriParseError;
+
+    fn try_from(attrs: Attrs) -> Result<Self, Self::Error> {
+        let host = extract_host_attr(&attrs)?;
+        let dir = extract_dir_attr(&attrs)?;
+        let reference = extract_ref_attr(&attrs)?;
+        let rev = extract_rev_attr(&attrs)?;
+        let nar_hash = extract_nar_hash_attr(&attrs)?;
+        let last_modified = extract_last_modified_attr(&attrs)?;
+        Ok(GitServiceAttributes {
+            host,
+            dir,
+            reference,
+            rev,
+            nar_hash,
+            last_modified,
+        })
+    }
+}
+
 pub mod service {
     use std::borrow::Cow;
 
@@ -52,7 +78,7 @@ pub mod service {
     use serde::{Deserialize, Serialize};
 
     #[derive(Default, Debug, PartialEq, Eq, From, Clone)]
-    pub struct GitService<Service>(Service);
+    pub struct GitService<Service>(pub(crate) Service);
 
     impl<Service: GitServiceHost> Serialize for GitService<Service> {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -312,6 +338,6 @@ mod tests {
         )
         .expect("should parse");
 
-        assert_eq!(flakeref, expected);
+        assert_eq!(flakeref, expected,);
     }
 }

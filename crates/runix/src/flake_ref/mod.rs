@@ -7,18 +7,31 @@ use std::str::FromStr;
 
 use chrono::{NaiveDateTime, TimeZone, Utc};
 use derive_more::{Display, From};
-use log::{debug, info};
+use log::debug;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use thiserror::Error;
 use url::Url;
 
-use self::file::{FileRef, TarballRef};
+use self::file::{FileAttributes, FileRef, TarballRef};
 use self::git::GitRef;
 use self::git_service::{service, GitServiceRef};
 use self::indirect::IndirectRef;
 use self::path::PathRef;
+use crate::flake_ref::git::GitAttributes;
+use crate::flake_ref::git_service::service::GitService;
+use crate::flake_ref::git_service::GitServiceAttributes;
+use crate::flake_ref::protocol::WrappedUrl;
+use crate::uri_parser::{
+    self,
+    FileProtocolType,
+    FlakeType,
+    GitProtocolType,
+    TarballProtocolType,
+    UriParseError,
+};
 
 pub mod file;
 pub mod git;
@@ -64,77 +77,16 @@ pub enum FlakeRef {
     // Tarball(TarballRef),
 }
 
+type Attrs = HashMap<String, Value>;
+
 impl FromStr for FlakeRef {
-    type Err = ParseFlakeRefError;
+    type Err = UriParseError;
 
-    /// Parse a flakeref string into a typed flakeref
-    ///
-    /// If not well defined, i.e. if the flakeref cannot be parsed as a url,
-    /// we resolve it either as an indirect flake or local path.
-    ///
-    /// Note: if not "well-defined" parsing flakerefs is "impure",
-    ///       i.e. depends on the state of the local system (files).
-    ///       The resulting flakeref however, serializes into well-defined form.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let url = match Url::parse(s) {
-            Ok(well_defined) => well_defined,
-            Err(_) => {
-                let resolved = if FLAKE_ID_REGEX.is_match(s) {
-                    Url::parse(&format!("flake:{s}")).map_err(|e| {
-                        ParseFlakeRefError::Indirect(indirect::ParseIndirectError::Url(e))
-                    })?
-                } else {
-                    FlakeRef::resolve_local(s)?
-                };
-
-                info!("Could not parse flakeref as URL; resolved locally to '{resolved:?}'");
-
-                resolved
-            },
+        let Some(bin_path) = uri_parser::PARSER_UTIL_BIN_PATH.get() else {
+            return Err(UriParseError::BinPathNotSet);
         };
-
-        let flake_ref = match url.scheme() {
-            _ if FileRef::<protocol::File>::parses(&url) => {
-                FileRef::<protocol::File>::from_url(url)?.into()
-            },
-            _ if FileRef::<protocol::HTTP>::parses(&url) => {
-                FileRef::<protocol::HTTP>::from_url(url)?.into()
-            },
-            _ if FileRef::<protocol::HTTPS>::parses(&url) => {
-                FileRef::<protocol::HTTPS>::from_url(url)?.into()
-            },
-            _ if TarballRef::<protocol::File>::parses(&url) => {
-                TarballRef::<protocol::File>::from_url(url)?.into()
-            },
-            _ if TarballRef::<protocol::HTTP>::parses(&url) => {
-                TarballRef::<protocol::HTTP>::from_url(url)?.into()
-            },
-            _ if TarballRef::<protocol::HTTPS>::parses(&url) => {
-                TarballRef::<protocol::HTTPS>::from_url(url)?.into()
-            },
-            _ if GitServiceRef::<service::Github>::parses(&url) => {
-                GitServiceRef::<service::Github>::from_url(url)?.into()
-            },
-            _ if GitServiceRef::<service::Gitlab>::parses(&url) => {
-                GitServiceRef::<service::Gitlab>::from_url(url)?.into()
-            },
-            _ if PathRef::parses(&url) => PathRef::from_url(url)?.into(),
-            _ if GitRef::<protocol::File>::parses(&url) => {
-                GitRef::<protocol::File>::from_url(url)?.into()
-            },
-            _ if GitRef::<protocol::SSH>::parses(&url) => {
-                GitRef::<protocol::SSH>::from_url(url)?.into()
-            },
-            _ if GitRef::<protocol::HTTP>::parses(&url) => {
-                GitRef::<protocol::HTTP>::from_url(url)?.into()
-            },
-            _ if GitRef::<protocol::HTTPS>::parses(&url) => {
-                GitRef::<protocol::HTTPS>::from_url(url)?.into()
-            },
-            _ if IndirectRef::parses(&url) => IndirectRef::from_url(url)?.into(),
-            _ => Err(ParseFlakeRefError::Invalid)?,
-        };
-        Ok(flake_ref)
+        FlakeRef::from_uri(s, bin_path)
     }
 }
 
@@ -253,6 +205,189 @@ impl FlakeRef {
             Ok(path_url)
         }
     }
+
+    /// Parses a URI into a flake reference given the URI and the path to the `parser-util` binary
+    pub fn from_uri<T: AsRef<str>>(uri: T, bin_path: &Path) -> Result<Self, UriParseError> {
+        let parsed = uri_parser::resolve_flake_ref(uri, bin_path)?;
+        let parsed_ref = parsed.original_ref;
+        match parsed_ref.flake_type {
+            FlakeType::Path => {
+                let path_ref = PathRef::try_from(parsed_ref.attrs)?;
+                Ok(FlakeRef::Path(path_ref))
+            },
+            FlakeType::Git(git_protocol) => {
+                let git_attrs = GitAttributes::try_from(parsed_ref.attrs.clone())?;
+                let Some(Value::String(url)) = parsed_ref.attrs.get("url") else {
+                    return Err(UriParseError::MissingAttribute("url".to_string()));
+                };
+                match git_protocol {
+                    GitProtocolType::File => {
+                        let url: WrappedUrl<protocol::File> = WrappedUrl::from_str(url)?;
+                        let git_ref = GitRef::new(url, git_attrs);
+                        Ok(FlakeRef::GitPath(git_ref))
+                    },
+                    GitProtocolType::Http => {
+                        let url: WrappedUrl<protocol::HTTP> = WrappedUrl::from_str(url)?;
+                        let git_ref = GitRef::new(url, git_attrs);
+                        Ok(FlakeRef::GitHttp(git_ref))
+                    },
+                    GitProtocolType::Https => {
+                        let url: WrappedUrl<protocol::HTTPS> = WrappedUrl::from_str(url)?;
+                        let git_ref = GitRef::new(url, git_attrs);
+                        Ok(FlakeRef::GitHttps(git_ref))
+                    },
+                    GitProtocolType::Ssh => {
+                        let url: WrappedUrl<protocol::SSH> = WrappedUrl::from_str(url)?;
+                        let git_ref = GitRef::new(url, git_attrs);
+                        Ok(FlakeRef::GitSsh(git_ref))
+                    },
+                    GitProtocolType::Git => Err(UriParseError::UnsupportedProtocol(
+                        "git".to_string(),
+                        "git".to_string(),
+                    )),
+                    GitProtocolType::None => Err(UriParseError::UnsupportedProtocol(
+                        "git".to_string(),
+                        "".to_string(),
+                    )),
+                }
+            },
+            // This is a valid flake type that we don't really support at all. It's handled here because it
+            // _can_ be parsed, but we don't actually do any Mercurial operations in flox, so we should
+            // stop here before allowing anyone to take further action on a Mercurial-based flake.
+            FlakeType::Mercurial(_) => Err(UriParseError::UnsupportedProtocol(
+                "mercurial".to_string(),
+                "any".to_string(),
+            )),
+            FlakeType::Tarball(tarball_protocol) => {
+                let Some(Value::String(url)) = parsed_ref.attrs.get("url") else {
+                    return Err(UriParseError::MissingAttribute("url".to_string()));
+                };
+                let url = url.clone();
+                let file_attrs = FileAttributes::try_from(parsed_ref.attrs)?;
+                match tarball_protocol {
+                    TarballProtocolType::Http => {
+                        let url: WrappedUrl<protocol::HTTP> = WrappedUrl::from_str(&url)?;
+                        let tarball_ref = TarballRef::new(url, file_attrs);
+                        Ok(FlakeRef::TarballHTTP(tarball_ref))
+                    },
+                    TarballProtocolType::Https => {
+                        let url: WrappedUrl<protocol::HTTPS> = WrappedUrl::from_str(&url)?;
+                        let tarball_ref = TarballRef::new(url, file_attrs);
+                        Ok(FlakeRef::TarballHTTPS(tarball_ref))
+                    },
+                    TarballProtocolType::File => {
+                        let url: WrappedUrl<protocol::File> = WrappedUrl::from_str(&url)?;
+                        let tarball_ref = TarballRef::new(url, file_attrs);
+                        Ok(FlakeRef::TarballFile(tarball_ref))
+                    },
+                }
+            },
+            FlakeType::File(file_protocol) => {
+                let Some(Value::String(url)) = parsed_ref.attrs.get("url") else {
+                    return Err(UriParseError::MissingAttribute("url".to_string()));
+                };
+                let url = url.clone();
+                let file_attrs = FileAttributes::try_from(parsed_ref.attrs)?;
+                match file_protocol {
+                    FileProtocolType::Http => {
+                        let url: WrappedUrl<protocol::HTTP> = WrappedUrl::from_str(&url)?;
+                        let file_ref = FileRef::new(url, file_attrs);
+                        Ok(FlakeRef::FileHTTP(file_ref))
+                    },
+                    FileProtocolType::Https => {
+                        let url: WrappedUrl<protocol::HTTPS> = WrappedUrl::from_str(&url)?;
+                        let file_ref = FileRef::new(url, file_attrs);
+                        Ok(FlakeRef::FileHTTPS(file_ref))
+                    },
+                    FileProtocolType::File => {
+                        let url: WrappedUrl<protocol::File> = WrappedUrl::from_str(&url)?;
+                        let file_ref = FileRef::new(url, file_attrs);
+                        Ok(FlakeRef::FileFile(file_ref))
+                    },
+                }
+            },
+            FlakeType::Github => {
+                let owner = match parsed_ref.attrs.get("owner") {
+                    Some(Value::String(owner)) => owner.clone(),
+                    Some(v) => {
+                        return Err(UriParseError::AttributeType(
+                            "owner".to_string(),
+                            "String".to_string(),
+                            v.clone(),
+                        ))
+                    },
+                    None => {
+                        return Err(UriParseError::MissingAttribute("owner".to_string()));
+                    },
+                };
+                let repo = match parsed_ref.attrs.get("repo") {
+                    Some(Value::String(repo)) => repo.clone(),
+                    Some(v) => {
+                        return Err(UriParseError::AttributeType(
+                            "repo".to_string(),
+                            "String".to_string(),
+                            v.clone(),
+                        ))
+                    },
+                    None => {
+                        return Err(UriParseError::MissingAttribute("repo".to_string()));
+                    },
+                };
+                let git_attrs = GitServiceAttributes::try_from(parsed_ref.attrs)?;
+                let git_service = GitServiceRef {
+                    owner,
+                    repo,
+                    attributes: git_attrs,
+                    _type: GitService(service::Github),
+                };
+                Ok(FlakeRef::Github(git_service))
+            },
+            FlakeType::Gitlab => {
+                let owner = match parsed_ref.attrs.get("owner") {
+                    Some(Value::String(owner)) => owner.clone(),
+                    Some(v) => {
+                        return Err(UriParseError::AttributeType(
+                            "owner".to_string(),
+                            "String".to_string(),
+                            v.clone(),
+                        ))
+                    },
+                    None => {
+                        return Err(UriParseError::MissingAttribute("owner".to_string()));
+                    },
+                };
+                let repo = match parsed_ref.attrs.get("repo") {
+                    Some(Value::String(repo)) => repo.clone(),
+                    Some(v) => {
+                        return Err(UriParseError::AttributeType(
+                            "repo".to_string(),
+                            "String".to_string(),
+                            v.clone(),
+                        ))
+                    },
+                    None => {
+                        return Err(UriParseError::MissingAttribute("repo".to_string()));
+                    },
+                };
+                let git_attrs = GitServiceAttributes::try_from(parsed_ref.attrs)?;
+                let git_service = GitServiceRef {
+                    owner,
+                    repo,
+                    attributes: git_attrs,
+                    _type: GitService(service::Gitlab),
+                };
+                Ok(FlakeRef::Gitlab(git_service))
+            },
+            // This is a valid git service provider that Nix has native support for that we _don't_
+            // provide support for at the moment. Extending support to SourceHut is left for future
+            // improvements.
+            FlakeType::Sourcehut => Err(UriParseError::UnsupportedService("sourcehut".to_string())),
+            FlakeType::Indirect => {
+                let indirect_ref = IndirectRef::try_from(parsed_ref.attrs)?;
+                Ok(FlakeRef::Indirect(indirect_ref))
+            },
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -344,9 +479,10 @@ pub enum ParseTimeError {
 #[cfg(test)]
 pub(super) mod tests {
 
+    #[allow(dead_code)]
     pub(super) fn roundtrip_to<T>(input: &str, output: &str)
     where
-        T: FromStr + Display,
+        T: FromStr + Display + Debug,
         <T as FromStr>::Err: Debug + Display,
     {
         let parsed = input
@@ -357,7 +493,7 @@ pub(super) mod tests {
 
     pub(super) fn roundtrip<T>(input: &str)
     where
-        T: FromStr + Display,
+        T: FromStr + Display + Debug,
         <T as FromStr>::Err: Debug + Display,
     {
         roundtrip_to::<T>(input, input)
@@ -371,99 +507,100 @@ pub(super) mod tests {
 
     #[test]
     fn test_all_parsing() {
+        let bin_path = uri_parser::get_bin();
         assert!(matches!(
-            dbg!(FlakeRef::from_str("file+file:///somewhere/there")).unwrap(),
+            FlakeRef::from_uri("file+file:///somewhere/there", &bin_path).unwrap(),
             FlakeRef::FileFile(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("file:///somewhere/there")).unwrap(),
+            FlakeRef::from_uri("file:///somewhere/there", &bin_path).unwrap(),
             FlakeRef::FileFile(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("file+http://my.de/path/to/file")).unwrap(),
+            FlakeRef::from_uri("file+http://my.de/path/to/file", &bin_path).unwrap(),
             FlakeRef::FileHTTP(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("http://my.de/path/to/file")).unwrap(),
+            FlakeRef::from_uri("http://my.de/path/to/file", &bin_path).unwrap(),
             FlakeRef::FileHTTP(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("file+https://my.de/path/to/file")).unwrap(),
+            FlakeRef::from_uri("file+https://my.de/path/to/file", &bin_path).unwrap(),
             FlakeRef::FileHTTPS(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("https://my.de/path/to/file")).unwrap(),
+            FlakeRef::from_uri("https://my.de/path/to/file", &bin_path).unwrap(),
             FlakeRef::FileHTTPS(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("tarball+file:///somewhere/there")).unwrap(),
+            FlakeRef::from_uri("tarball+file:///somewhere/there", &bin_path).unwrap(),
             FlakeRef::TarballFile(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("file:///somewhere/there.tar.gz")).unwrap(),
+            FlakeRef::from_uri("file:///somewhere/there.tar.gz", &bin_path).unwrap(),
             FlakeRef::TarballFile(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("tarball+http://my.de/path/to/file")).unwrap(),
+            FlakeRef::from_uri("tarball+http://my.de/path/to/file", &bin_path).unwrap(),
             FlakeRef::TarballHTTP(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("http://my.de/path/to/file.tar.gz")).unwrap(),
+            FlakeRef::from_uri("http://my.de/path/to/file.tar.gz", &bin_path).unwrap(),
             FlakeRef::TarballHTTP(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("tarball+https://my.de/path/to/file")).unwrap(),
+            FlakeRef::from_uri("tarball+https://my.de/path/to/file", &bin_path).unwrap(),
             FlakeRef::TarballHTTPS(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("https://my.de/path/to/file.tar.gz")).unwrap(),
+            FlakeRef::from_uri("https://my.de/path/to/file.tar.gz", &bin_path).unwrap(),
             FlakeRef::TarballHTTPS(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("github:flox/runix")).unwrap(),
+            FlakeRef::from_uri("github:flox/runix", &bin_path).unwrap(),
             FlakeRef::Github(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("gitlab:flox/runix")).unwrap(),
+            FlakeRef::from_uri("gitlab:flox/runix", &bin_path).unwrap(),
             FlakeRef::Gitlab(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("path:/somewhere/there")).unwrap(),
+            FlakeRef::from_uri("path:/somewhere/there", &bin_path).unwrap(),
             FlakeRef::Path(_)
         ));
 
         let tempdir = tempfile::tempdir().unwrap();
         File::create(tempdir.path().join("flake.nix")).unwrap();
         assert!(matches!(
-            dbg!(FlakeRef::from_str(&tempdir.path().to_string_lossy())).unwrap(),
+            FlakeRef::from_uri(&tempdir.path().to_string_lossy(), &bin_path).unwrap(),
             FlakeRef::Path(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("git+file:///somewhere/there")).unwrap(),
+            FlakeRef::from_uri("git+file:///somewhere/there", &bin_path).unwrap(),
             FlakeRef::GitPath(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("./")).unwrap(),
-            FlakeRef::GitPath(_)
+            FlakeRef::from_uri("./", &bin_path).unwrap(),
+            FlakeRef::Path(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("git+ssh://github.com/flox/runix")).unwrap(),
+            FlakeRef::from_uri("git+ssh://github.com/flox/runix", &bin_path).unwrap(),
             FlakeRef::GitSsh(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("git+https://github.com/flox/runix")).unwrap(),
+            FlakeRef::from_uri("git+https://github.com/flox/runix", &bin_path).unwrap(),
             FlakeRef::GitHttps(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("git+http://github.com/flox/runix")).unwrap(),
+            FlakeRef::from_uri("git+http://github.com/flox/runix", &bin_path).unwrap(),
             FlakeRef::GitHttp(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("flake:nixpkgs")).unwrap(),
+            FlakeRef::from_uri("flake:nixpkgs", &bin_path).unwrap(),
             FlakeRef::Indirect(_)
         ));
         assert!(matches!(
-            dbg!(FlakeRef::from_str("nixpkgs")).unwrap(),
+            FlakeRef::from_uri("nixpkgs", &bin_path).unwrap(),
             FlakeRef::Indirect(_)
         ));
     }

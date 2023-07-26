@@ -9,7 +9,15 @@ use thiserror::Error;
 use url::Url;
 
 use super::lock::{LastModified, NarHash, Rev, RevCount};
-use super::FlakeRefSource;
+use super::{Attrs, FlakeRefSource};
+use crate::uri_parser::{
+    extract_last_modified_attr,
+    extract_nar_hash_attr,
+    extract_path_attr,
+    extract_rev_attr,
+    extract_rev_count_attr,
+    UriParseError,
+};
 
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/path.cc#L46>
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
@@ -96,6 +104,31 @@ impl Display for PathRef {
     }
 }
 
+impl TryFrom<Attrs> for PathRef {
+    type Error = UriParseError;
+
+    fn try_from(attrs: Attrs) -> Result<Self, Self::Error> {
+        let path = extract_path_attr(&attrs)?;
+        if path.is_none() {
+            return Err(UriParseError::MissingAttribute("path".to_string()));
+        }
+        let path = path.unwrap(); // Just checked that this is safe
+        let rev_count = extract_rev_count_attr(&attrs)?;
+        let nar_hash = extract_nar_hash_attr(&attrs)?;
+        let last_modified = extract_last_modified_attr(&attrs)?;
+        let rev = extract_rev_attr(&attrs)?;
+        Ok(PathRef {
+            path,
+            attributes: PathAttributes {
+                rev_count,
+                nar_hash,
+                last_modified,
+                rev,
+            },
+        })
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum ParsePathRefError {
     #[error(transparent)]
@@ -112,11 +145,13 @@ mod tests {
 
     use super::*;
     use crate::flake_ref::FlakeRef;
+    use crate::uri_parser;
 
     #[test]
     fn parses_path_flakeref() {
+        let bin_path = uri_parser::get_bin();
         assert_eq!(
-            FlakeRef::from_str("path:/can/be/missing").unwrap(),
+            FlakeRef::from_uri("path:/can/be/missing", &bin_path).unwrap(),
             FlakeRef::Path(PathRef::from_str("path:/can/be/missing").unwrap())
         );
     }

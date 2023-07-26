@@ -4,10 +4,12 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use thiserror::Error;
 use url::Url;
 
-use super::FlakeRefSource;
+use super::{Attrs, FlakeRefSource};
+use crate::uri_parser::UriParseError;
 
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/path.cc#L46>
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, PartialOrd, Ord)]
@@ -15,10 +17,37 @@ pub struct IndirectRef {
     pub id: String,
 
     #[serde(rename = "type")]
-    _type: Tag,
+    pub(crate) _type: Tag,
 
     #[serde(flatten)]
     pub attributes: BTreeMap<String, String>,
+}
+
+impl TryFrom<Attrs> for IndirectRef {
+    type Error = UriParseError;
+
+    fn try_from(mut attrs: Attrs) -> Result<Self, Self::Error> {
+        let tag = Tag::Indirect;
+        let Some(Value::String(id)) = attrs.get("id") else {
+            return Err(UriParseError::MissingAttribute("id".to_string()));
+        };
+        let id = id.clone();
+        let mut attributes = BTreeMap::new();
+        for (k, v) in attrs.drain() {
+            if let Value::String(string) = v {
+                // Calling Value::to_string on Value::String produces an extra
+                // set of quotes around the value
+                attributes.insert(k, string);
+            } else {
+                attributes.insert(k, v.to_string());
+            }
+        }
+        Ok(IndirectRef {
+            id,
+            _type: tag,
+            attributes,
+        })
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, PartialOrd, Ord, Default)]
@@ -104,8 +133,8 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::flake_ref::tests::roundtrip_to;
     use crate::flake_ref::FlakeRef;
+    use crate::uri_parser;
 
     /// Ensure that an indirect flake ref serializes without information loss
     #[test]
@@ -124,28 +153,38 @@ mod tests {
 
     #[test]
     fn parses_registry_flakeref() {
+        let bin_path = uri_parser::get_bin();
+        let expected_attrs = vec![
+            ("id".to_string(), "nixpkgs".to_string()),
+            ("type".to_string(), "indirect".to_string()),
+        ]
+        .drain(..)
+        .collect::<BTreeMap<_, _>>();
+        let expected = IndirectRef {
+            _type: Tag::Indirect,
+            id: "nixpkgs".to_string(),
+            attributes: expected_attrs,
+        };
+        let actual_flakeref = FlakeRef::from_uri("nixpkgs", &bin_path).unwrap();
+        let expected_flakeref = FlakeRef::Indirect(expected);
+        assert_eq!(actual_flakeref, expected_flakeref);
+    }
+
+    #[test]
+    fn parses_indirect_ref() {
         let expected = IndirectRef {
             _type: Tag::Indirect,
             id: "nixpkgs".to_string(),
             attributes: BTreeMap::default(),
         };
+        let actual = IndirectRef::from_str("flake:nixpkgs").unwrap();
 
-        assert_eq!(IndirectRef::from_str("flake:nixpkgs").unwrap(), expected);
-        assert_eq!(
-            FlakeRef::from_str("nixpkgs").unwrap(),
-            FlakeRef::Indirect(expected)
-        );
+        assert_eq!(actual, expected);
     }
 
     #[test]
     fn does_not_parse_other() {
         IndirectRef::from_str("github:nixpkgs").unwrap_err();
-    }
-
-    #[test]
-    fn roundtrip_attributes() {
-        // IndirectRef does not convert non-well-defined flake urls on its own anymore
-        roundtrip_to::<FlakeRef>("nixpkgs?ref=master&dir=1", "flake:nixpkgs?dir=1&ref=master");
     }
 
     #[test]

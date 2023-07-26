@@ -8,10 +8,14 @@ use serde_with::skip_serializing_none;
 use thiserror::Error;
 use url::Url;
 
+use crate::uri_parser::{
+    extract_name_attr, extract_nar_hash_attr, extract_unpack_attr, UriParseError,
+};
+
 use self::application::{Application, ApplicationProtocol};
 use super::lock::NarHash;
 use super::protocol::{self, Protocol, WrappedUrl, WrappedUrlParseError};
-use super::FlakeRefSource;
+use super::{Attrs, FlakeRefSource};
 
 pub type FileUrl<Protocol> = WrappedUrl<Protocol>;
 
@@ -44,6 +48,24 @@ pub struct FileAttributes {
 
     pub name: Option<String>,
 }
+
+impl TryFrom<Attrs> for FileAttributes {
+    type Error = UriParseError;
+
+    fn try_from(attrs: Attrs) -> Result<Self, Self::Error> {
+        let nar_hash = extract_nar_hash_attr(&attrs)?;
+        let unpack = extract_unpack_attr(&attrs)?;
+        let name = extract_name_attr(&attrs)?;
+        Ok(FileAttributes {
+            nar_hash,
+            unpack,
+            name,
+        })
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
+pub struct Unpack(bool);
 
 pub mod application {
     use std::borrow::Cow;

@@ -8,8 +8,11 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use thiserror::Error;
 
-use crate::flake_ref::{FlakeRef, ParseFlakeRefError};
 use crate::store_path::StorePath;
+use crate::{
+    flake_ref::{FlakeRef, ParseFlakeRefError},
+    uri_parser::UriParseError,
+};
 
 /// regex listing valid characters for attributes
 ///
@@ -266,6 +269,8 @@ pub enum ParseInstallableError {
     UnclosedQuote(String),
     #[error("Invalid attribute '{0}'")]
     InvalidAttr(String),
+    #[error("failed to parse URI")]
+    URIParser(#[from] UriParseError),
 }
 
 #[cfg(test)]
