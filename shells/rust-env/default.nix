@@ -10,23 +10,22 @@
   rustc,
   rust,
   libiconv,
-  # commitizen,
+  commitizen,
+  rustfmt,
+  pre-commit-checks,
 }:
 mkShell {
   inputsFrom = [];
   RUST_SRC_PATH = rust.packages.stable.rustPlatform.rustLibSrc;
-  RUSTFMT = "${self.checks.pre-commit-check.passthru.rustfmt}/bin/rustfmt";
+  RUSTFMT = "${rustfmt}/bin/rustfmt";
   packages =
     [
-      # temporary until https://github.com/commitizen-tools/commitizen/pull/644 is merged
-      self.checks.pre-commit-check.passthru.commitizen
-      self.checks.pre-commit-check.passthru.rustfmt
-
+      rustfmt
+      commitizen
       cargo
       rustc
       clippy
       rust-analyzer
-      rust.packages.stable.rustPlatform.rustLibSrc
     ]
     ++ lib.optional hostPlatform.isDarwin [
       darwin.apple_sdk.frameworks.Security
@@ -34,6 +33,6 @@ mkShell {
     ];
 
   shellHook = ''
-    ${self.checks.pre-commit-check.shellHook}
+    ${pre-commit-checks.shellHook}
   '';
 }
