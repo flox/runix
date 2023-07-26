@@ -155,6 +155,31 @@ pub struct StoreGcArgs {
     pub max: Option<Max>,
 }
 
+/// `nix copy` options
+#[derive(Debug, Default, Clone, ToArgs)]
+pub struct CopyArgs {
+    pub from: Option<CopyFrom>,
+    pub to: Option<CopyTo>,
+}
+
+/// `nix copy --from` option
+#[derive(Debug, Clone, Deref, Default, From)]
+#[from(forward)]
+pub struct CopyFrom(String);
+impl Flag for CopyFrom {
+    const FLAG: &'static str = "--from";
+    const FLAG_TYPE: FlagType<Self> = FlagType::arg();
+}
+
+/// `nix copy --to` option
+#[derive(Debug, Clone, Deref, Default, From)]
+#[from(forward)]
+pub struct CopyTo(String);
+impl Flag for CopyTo {
+    const FLAG: &'static str = "--to";
+    const FLAG_TYPE: FlagType<Self> = FlagType::arg();
+}
+
 /// `nix path-info --closure-size` flag
 #[derive(Clone, From, Deref, Debug)]
 #[from(forward)]
