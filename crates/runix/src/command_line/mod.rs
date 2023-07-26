@@ -216,8 +216,8 @@ impl NixCommandLine {
             } else {
                 vec![]
             },
-            command.args(),
             self.defaults.extra_args.clone(),
+            command.args(),
         ];
 
         let mut command = Command::new(self.nix_bin.as_deref().unwrap_or("nix"));
