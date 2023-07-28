@@ -218,7 +218,7 @@ impl FlakeRef {
             FlakeType::Git(git_protocol) => {
                 let git_attrs = GitAttributes::try_from(parsed_ref.attrs.clone())?;
                 let Some(Value::String(url)) = parsed_ref.attrs.get("url") else {
-                    return Err(UrlParseError::MissingAttribute("url".to_string()));
+                    return Err(UrlParseError::MissingAttribute("url"));
                 };
                 match git_protocol {
                     GitProtocolType::File => {
@@ -260,7 +260,7 @@ impl FlakeRef {
             )),
             FlakeType::Tarball(tarball_protocol) => {
                 let Some(Value::String(url)) = parsed_ref.attrs.get("url") else {
-                    return Err(UrlParseError::MissingAttribute("url".to_string()));
+                    return Err(UrlParseError::MissingAttribute("url"));
                 };
                 let url = url.clone();
                 let file_attrs = FileAttributes::try_from(parsed_ref.attrs)?;
@@ -284,7 +284,7 @@ impl FlakeRef {
             },
             FlakeType::File(file_protocol) => {
                 let Some(Value::String(url)) = parsed_ref.attrs.get("url") else {
-                    return Err(UrlParseError::MissingAttribute("url".to_string()));
+                    return Err(UrlParseError::MissingAttribute("url"));
                 };
                 let url = url.clone();
                 let file_attrs = FileAttributes::try_from(parsed_ref.attrs)?;
@@ -310,27 +310,19 @@ impl FlakeRef {
                 let owner = match parsed_ref.attrs.get("owner") {
                     Some(Value::String(owner)) => owner.clone(),
                     Some(v) => {
-                        return Err(UrlParseError::AttributeType(
-                            "owner".to_string(),
-                            "String".to_string(),
-                            v.clone(),
-                        ))
+                        return Err(UrlParseError::AttributeType("owner", "String", v.clone()))
                     },
                     None => {
-                        return Err(UrlParseError::MissingAttribute("owner".to_string()));
+                        return Err(UrlParseError::MissingAttribute("owner"));
                     },
                 };
                 let repo = match parsed_ref.attrs.get("repo") {
                     Some(Value::String(repo)) => repo.clone(),
                     Some(v) => {
-                        return Err(UrlParseError::AttributeType(
-                            "repo".to_string(),
-                            "String".to_string(),
-                            v.clone(),
-                        ))
+                        return Err(UrlParseError::AttributeType("repo", "String", v.clone()))
                     },
                     None => {
-                        return Err(UrlParseError::MissingAttribute("repo".to_string()));
+                        return Err(UrlParseError::MissingAttribute("repo"));
                     },
                 };
                 let git_attrs = GitServiceAttributes::try_from(parsed_ref.attrs)?;
@@ -346,27 +338,19 @@ impl FlakeRef {
                 let owner = match parsed_ref.attrs.get("owner") {
                     Some(Value::String(owner)) => owner.clone(),
                     Some(v) => {
-                        return Err(UrlParseError::AttributeType(
-                            "owner".to_string(),
-                            "String".to_string(),
-                            v.clone(),
-                        ))
+                        return Err(UrlParseError::AttributeType("owner", "String", v.clone()))
                     },
                     None => {
-                        return Err(UrlParseError::MissingAttribute("owner".to_string()));
+                        return Err(UrlParseError::MissingAttribute("owner"));
                     },
                 };
                 let repo = match parsed_ref.attrs.get("repo") {
                     Some(Value::String(repo)) => repo.clone(),
                     Some(v) => {
-                        return Err(UrlParseError::AttributeType(
-                            "repo".to_string(),
-                            "String".to_string(),
-                            v.clone(),
-                        ))
+                        return Err(UrlParseError::AttributeType("repo", "String", v.clone()))
                     },
                     None => {
-                        return Err(UrlParseError::MissingAttribute("repo".to_string()));
+                        return Err(UrlParseError::MissingAttribute("repo"));
                     },
                 };
                 let git_attrs = GitServiceAttributes::try_from(parsed_ref.attrs)?;

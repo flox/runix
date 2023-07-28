@@ -110,7 +110,7 @@ impl TryFrom<Attrs> for PathRef {
     fn try_from(attrs: Attrs) -> Result<Self, Self::Error> {
         let path = extract_path_attr(&attrs)?;
         if path.is_none() {
-            return Err(UrlParseError::MissingAttribute("path".to_string()));
+            return Err(UrlParseError::MissingAttribute("path"));
         }
         let path = path.unwrap(); // Just checked that this is safe
         let rev_count = extract_rev_count_attr(&attrs)?;

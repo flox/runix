@@ -29,7 +29,7 @@ impl TryFrom<Attrs> for IndirectRef {
     fn try_from(mut attrs: Attrs) -> Result<Self, Self::Error> {
         let tag = Tag::Indirect;
         let Some(Value::String(id)) = attrs.get("id") else {
-            return Err(UrlParseError::MissingAttribute("id".to_string()));
+            return Err(UrlParseError::MissingAttribute("id"));
         };
         let id = id.clone();
         let mut attributes = BTreeMap::new();

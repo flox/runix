@@ -48,7 +48,7 @@ pub enum UrlParseError {
     #[error("failed to deserialize JSON")]
     Deserialize(#[from] serde_json::Error),
     #[error("parsed URL was missing attribute '{0}'")]
-    MissingAttribute(String),
+    MissingAttribute(&'static str),
     // Everything after this point is self-inflicted trying to strongly type what Nix gave us
     #[error("bad timestamp")]
     BadTimestamp(#[from] ParseTimeError),
@@ -61,7 +61,7 @@ pub enum UrlParseError {
     #[error("failed to parse URL")]
     URLParseError(#[from] WrappedUrlParseError),
     #[error("attribute '{0}' had unexpected type, expected '{1}' and found '{2}'")]
-    AttributeType(String, String, Value),
+    AttributeType(&'static str, &'static str, Value),
     #[error("{0}")]
     Other(String),
 }
@@ -81,14 +81,14 @@ impl TryFrom<GenericParsedURL> for ResolvedFlakeRef {
     fn try_from(parsed: GenericParsedURL) -> Result<Self, Self::Error> {
         let input = parsed
             .input
-            .ok_or_else(|| UrlParseError::MissingAttribute("input".to_string()))?;
+            .ok_or_else(|| UrlParseError::MissingAttribute("input"))?;
         let original_ref = parsed
             .original_ref
-            .ok_or_else(|| UrlParseError::MissingAttribute("originalRef".to_string()))
+            .ok_or_else(|| UrlParseError::MissingAttribute("originalRef"))
             .and_then(ParsedFlakeReference::try_from)?;
         let resolved_ref = parsed
             .resolved_ref
-            .ok_or_else(|| UrlParseError::MissingAttribute("resolvedRef".to_string()))
+            .ok_or_else(|| UrlParseError::MissingAttribute("resolvedRef"))
             .and_then(ParsedFlakeReference::try_from)?;
 
         Ok(ResolvedFlakeRef {
@@ -116,7 +116,7 @@ impl TryFrom<GenericParsedURL> for LockedFlakeRef {
         let locked_ref = parsed
             .locked_ref
             .take()
-            .ok_or_else(|| UrlParseError::MissingAttribute("lockedRef".to_string()))
+            .ok_or_else(|| UrlParseError::MissingAttribute("lockedRef"))
             .and_then(ParsedFlakeReference::try_from)?;
 
         let ResolvedFlakeRef {
@@ -149,18 +149,18 @@ impl TryFrom<GenericParsedURL> for InstallableFlakeRef {
     fn try_from(parsed: GenericParsedURL) -> Result<Self, Self::Error> {
         let input = parsed
             .input
-            .ok_or_else(|| UrlParseError::MissingAttribute("input".to_string()))?;
+            .ok_or_else(|| UrlParseError::MissingAttribute("input"))?;
 
         let attr_path = parsed
             .attr_path
-            .ok_or_else(|| UrlParseError::MissingAttribute("attrPath".to_string()))?;
+            .ok_or_else(|| UrlParseError::MissingAttribute("attrPath"))?;
 
         let outputs = parsed
             .outputs
-            .ok_or_else(|| UrlParseError::MissingAttribute("outputs".to_string()))?;
+            .ok_or_else(|| UrlParseError::MissingAttribute("outputs"))?;
         let r#ref = parsed
             .r#ref
-            .ok_or_else(|| UrlParseError::MissingAttribute("ref".to_string()))
+            .ok_or_else(|| UrlParseError::MissingAttribute("ref"))
             .and_then(ParsedFlakeReference::try_from)?;
 
         Ok(InstallableFlakeRef {
@@ -186,7 +186,7 @@ struct GenericParsedURL {
     r#ref: Option<DeserializedFlakeRef>,
     attr_path: Option<Vec<String>>,
     outputs: Option<InstallableOutputs>,
-    authority: Option<Option<String>>,
+    authority: Option<String>,
     base: Option<String>,
     fragment: Option<String>,
     path: Option<String>,
@@ -529,13 +529,7 @@ pub fn installable_flake_ref(
 pub(crate) fn extract_nar_hash_attr(attrs: &Attrs) -> Result<Option<NarHash>, UrlParseError> {
     let nar_hash = match attrs.get("narHash") {
         Some(Value::String(nar_hash)) => Some(nar_hash.clone()),
-        Some(v) => {
-            return Err(UrlParseError::AttributeType(
-                "narHash".to_string(),
-                "String".to_string(),
-                v.clone(),
-            ))
-        },
+        Some(v) => return Err(UrlParseError::AttributeType("narHash", "String", v.clone())),
         None => None,
     };
     Ok(nar_hash)
@@ -548,13 +542,7 @@ pub(crate) fn extract_rev_attr(attrs: &Attrs) -> Result<Option<Rev>, UrlParseErr
             let checked_rev = Rev::from_str(rev)?;
             Some(checked_rev)
         },
-        Some(v) => {
-            return Err(UrlParseError::AttributeType(
-                "narHash".to_string(),
-                "String".to_string(),
-                v.clone(),
-            ))
-        },
+        Some(v) => return Err(UrlParseError::AttributeType("narHash", "String", v.clone())),
         None => None,
     };
     Ok(rev)
@@ -564,13 +552,7 @@ pub(crate) fn extract_rev_attr(attrs: &Attrs) -> Result<Option<Rev>, UrlParseErr
 pub(crate) fn extract_dir_attr(attrs: &Attrs) -> Result<Option<PathBuf>, UrlParseError> {
     let dir = match attrs.get("dir") {
         Some(Value::String(dir)) => Some(PathBuf::from(dir)),
-        Some(v) => {
-            return Err(UrlParseError::AttributeType(
-                "dir".to_string(),
-                "String".to_string(),
-                v.clone(),
-            ))
-        },
+        Some(v) => return Err(UrlParseError::AttributeType("dir", "String", v.clone())),
         None => None,
     };
     Ok(dir)
@@ -580,13 +562,7 @@ pub(crate) fn extract_dir_attr(attrs: &Attrs) -> Result<Option<PathBuf>, UrlPars
 pub(crate) fn extract_ref_attr(attrs: &Attrs) -> Result<Option<String>, UrlParseError> {
     let reference = match attrs.get("ref") {
         Some(Value::String(reference)) => Some(reference.clone()),
-        Some(v) => {
-            return Err(UrlParseError::AttributeType(
-                "ref".to_string(),
-                "String".to_string(),
-                v.clone(),
-            ))
-        },
+        Some(v) => return Err(UrlParseError::AttributeType("ref", "String", v.clone())),
         None => None,
     };
     Ok(reference)
@@ -608,13 +584,7 @@ pub(crate) fn extract_last_modified_attr(
             let ts = Timestamp::try_from(ts_deser)?;
             Some(ts)
         },
-        Some(v) => {
-            return Err(UrlParseError::AttributeType(
-                "narHash".to_string(),
-                "String".to_string(),
-                v.clone(),
-            ))
-        },
+        Some(v) => return Err(UrlParseError::AttributeType("narHash", "String", v.clone())),
         None => None,
     };
     Ok(last_modified)
@@ -624,13 +594,7 @@ pub(crate) fn extract_last_modified_attr(
 pub(crate) fn extract_host_attr(attrs: &Attrs) -> Result<Option<String>, UrlParseError> {
     let host = match attrs.get("host") {
         Some(Value::String(host)) => Some(host.clone()),
-        Some(v) => {
-            return Err(UrlParseError::AttributeType(
-                "host".to_string(),
-                "String".to_string(),
-                v.clone(),
-            ))
-        },
+        Some(v) => return Err(UrlParseError::AttributeType("host", "String", v.clone())),
         None => None,
     };
     Ok(host)
@@ -650,8 +614,8 @@ pub(crate) fn extract_rev_count_attr(attrs: &Attrs) -> Result<Option<RevCount>, 
         },
         Some(v) => {
             return Err(UrlParseError::AttributeType(
-                "revCount".to_string(),
-                "Number".to_string(),
+                "revCount",
+                "Number",
                 v.clone(),
             ))
         },
@@ -664,13 +628,7 @@ pub(crate) fn extract_rev_count_attr(attrs: &Attrs) -> Result<Option<RevCount>, 
 pub(crate) fn extract_shallow_attr(attrs: &Attrs) -> Result<Option<bool>, UrlParseError> {
     let shallow = match attrs.get("shallow") {
         Some(Value::Bool(shallow)) => Some(shallow),
-        Some(v) => {
-            return Err(UrlParseError::AttributeType(
-                "shallow".to_string(),
-                "Bool".to_string(),
-                v.clone(),
-            ))
-        },
+        Some(v) => return Err(UrlParseError::AttributeType("shallow", "Bool", v.clone())),
         None => None,
     };
     Ok(shallow.copied())
@@ -682,8 +640,8 @@ pub(crate) fn extract_submodules_attr(attrs: &Attrs) -> Result<Option<bool>, Url
         Some(Value::Bool(submodules)) => Some(submodules),
         Some(v) => {
             return Err(UrlParseError::AttributeType(
-                "submodules".to_string(),
-                "Bool".to_string(),
+                "submodules",
+                "Bool",
                 v.clone(),
             ))
         },
@@ -696,13 +654,7 @@ pub(crate) fn extract_submodules_attr(attrs: &Attrs) -> Result<Option<bool>, Url
 pub(crate) fn extract_all_refs_attr(attrs: &Attrs) -> Result<Option<bool>, UrlParseError> {
     let all_refs = match attrs.get("allRefs") {
         Some(Value::Bool(all_refs)) => Some(all_refs),
-        Some(v) => {
-            return Err(UrlParseError::AttributeType(
-                "allRefs".to_string(),
-                "Bool".to_string(),
-                v.clone(),
-            ))
-        },
+        Some(v) => return Err(UrlParseError::AttributeType("allRefs", "Bool", v.clone())),
         None => None,
     };
     Ok(all_refs.copied())
@@ -712,13 +664,7 @@ pub(crate) fn extract_all_refs_attr(attrs: &Attrs) -> Result<Option<bool>, UrlPa
 pub(crate) fn extract_path_attr(attrs: &Attrs) -> Result<Option<PathBuf>, UrlParseError> {
     let path = match attrs.get("path") {
         Some(Value::String(path)) => Some(PathBuf::from(path)),
-        Some(v) => {
-            return Err(UrlParseError::AttributeType(
-                "path".to_string(),
-                "String".to_string(),
-                v.clone(),
-            ))
-        },
+        Some(v) => return Err(UrlParseError::AttributeType("path", "String", v.clone())),
         None => None,
     };
     Ok(path)
@@ -728,13 +674,7 @@ pub(crate) fn extract_path_attr(attrs: &Attrs) -> Result<Option<PathBuf>, UrlPar
 pub(crate) fn extract_unpack_attr(attrs: &Attrs) -> Result<Option<bool>, UrlParseError> {
     let unpack = match attrs.get("unpack") {
         Some(Value::Bool(unpack)) => Some(unpack),
-        Some(v) => {
-            return Err(UrlParseError::AttributeType(
-                "unpack".to_string(),
-                "Bool".to_string(),
-                v.clone(),
-            ))
-        },
+        Some(v) => return Err(UrlParseError::AttributeType("unpack", "Bool", v.clone())),
         None => None,
     };
     Ok(unpack.copied())
@@ -744,13 +684,7 @@ pub(crate) fn extract_unpack_attr(attrs: &Attrs) -> Result<Option<bool>, UrlPars
 pub(crate) fn extract_name_attr(attrs: &Attrs) -> Result<Option<String>, UrlParseError> {
     let name = match attrs.get("name") {
         Some(Value::String(name)) => Some(name.clone()),
-        Some(v) => {
-            return Err(UrlParseError::AttributeType(
-                "name".to_string(),
-                "String".to_string(),
-                v.clone(),
-            ))
-        },
+        Some(v) => return Err(UrlParseError::AttributeType("name", "String", v.clone())),
         None => None,
     };
     Ok(name)
