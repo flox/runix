@@ -8,14 +8,18 @@ use serde_with::skip_serializing_none;
 use thiserror::Error;
 use url::Url;
 
-use crate::uri_parser::{
-    extract_dir_attr, extract_host_attr, extract_last_modified_attr, extract_nar_hash_attr,
-    extract_ref_attr, extract_rev_attr, UriParseError,
-};
-
 use self::service::GitService;
 use super::lock::{LastModified, NarHash, Rev, RevOrRef};
 use super::{Attrs, FlakeRefSource};
+use crate::uri_parser::{
+    extract_dir_attr,
+    extract_host_attr,
+    extract_last_modified_attr,
+    extract_nar_hash_attr,
+    extract_ref_attr,
+    extract_rev_attr,
+    UriParseError,
+};
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct GitServiceRef<Service> {

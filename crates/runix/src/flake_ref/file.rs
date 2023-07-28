@@ -8,14 +8,16 @@ use serde_with::skip_serializing_none;
 use thiserror::Error;
 use url::Url;
 
-use crate::uri_parser::{
-    extract_name_attr, extract_nar_hash_attr, extract_unpack_attr, UriParseError,
-};
-
 use self::application::{Application, ApplicationProtocol};
 use super::lock::NarHash;
 use super::protocol::{self, Protocol, WrappedUrl, WrappedUrlParseError};
 use super::{Attrs, FlakeRefSource};
+use crate::uri_parser::{
+    extract_name_attr,
+    extract_nar_hash_attr,
+    extract_unpack_attr,
+    UriParseError,
+};
 
 pub type FileUrl<Protocol> = WrappedUrl<Protocol>;
 

@@ -9,15 +9,21 @@ use serde_with::skip_serializing_none;
 use thiserror::Error;
 use url::Url;
 
-use crate::uri_parser::{
-    extract_all_refs_attr, extract_dir_attr, extract_last_modified_attr, extract_nar_hash_attr,
-    extract_ref_attr, extract_rev_attr, extract_rev_count_attr, extract_shallow_attr,
-    extract_submodules_attr, UriParseError,
-};
-
 use super::lock::{LastModified, NarHash, Rev, RevCount};
 use super::protocol::{self, Protocol, WrappedUrl, WrappedUrlParseError};
 use super::{Attrs, FlakeRefSource, Timestamp, TimestampDeserialize};
+use crate::uri_parser::{
+    extract_all_refs_attr,
+    extract_dir_attr,
+    extract_last_modified_attr,
+    extract_nar_hash_attr,
+    extract_ref_attr,
+    extract_rev_attr,
+    extract_rev_count_attr,
+    extract_shallow_attr,
+    extract_submodules_attr,
+    UriParseError,
+};
 
 pub type GitUrl<Protocol> = WrappedUrl<Protocol>;
 
