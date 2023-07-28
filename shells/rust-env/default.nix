@@ -1,6 +1,5 @@
 {
   mkShell,
-  self,
   runix,
   rustPlatform,
   cargo,
