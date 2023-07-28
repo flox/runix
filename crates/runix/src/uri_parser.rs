@@ -79,32 +79,22 @@ impl TryFrom<GenericParsedURI> for ResolvedFlakeRef {
     type Error = UriParseError;
 
     fn try_from(parsed: GenericParsedURI) -> Result<Self, Self::Error> {
-        let Some(input) = parsed.input else {
-            return Err(UriParseError::MissingAttribute("input".to_string()));
-        };
-        let Some(original_ref) = parsed.original_ref else {
-            return Err(UriParseError::MissingAttribute("originalRef".to_string()));
-        };
-        let original_ref = ParsedFlakeReference::try_from(original_ref);
-        if original_ref.is_err() {
-            // The `Err` type of `original_ref` is the same as `Self::Error`, but the
-            // `Ok` type is different, so we do a dummy mapping in order to make it
-            // possible to just return the `Err` variant (otherwise the type checker
-            // will not allow you to return `original_ref`).
-            return original_ref.map(|_| unreachable!());
-        }
-        let Some(resolved_ref) = parsed.resolved_ref else {
-            return Err(UriParseError::MissingAttribute("resolvedRef".to_string()));
-        };
-        let resolved_ref = ParsedFlakeReference::try_from(resolved_ref);
-        if resolved_ref.is_err() {
-            // See the comment above about why we're doing this `todo!` mapping
-            return resolved_ref.map(|_| unreachable!());
-        }
+        let input = parsed
+            .input
+            .ok_or_else(|| UriParseError::MissingAttribute("input".to_string()))?;
+        let original_ref = parsed
+            .original_ref
+            .ok_or_else(|| UriParseError::MissingAttribute("originalRef".to_string()))
+            .and_then(ParsedFlakeReference::try_from)?;
+        let resolved_ref = parsed
+            .resolved_ref
+            .ok_or_else(|| UriParseError::MissingAttribute("resolvedRef".to_string()))
+            .and_then(ParsedFlakeReference::try_from)?;
+
         Ok(ResolvedFlakeRef {
             input,
-            original_ref: original_ref.unwrap(), // already checked for error case
-            resolved_ref: resolved_ref.unwrap(), // already checked for error case
+            original_ref,
+            resolved_ref,
         })
     }
 }
@@ -122,42 +112,24 @@ pub struct LockedFlakeRef {
 impl TryFrom<GenericParsedURI> for LockedFlakeRef {
     type Error = UriParseError;
 
-    fn try_from(parsed: GenericParsedURI) -> Result<Self, Self::Error> {
-        let Some(input) = parsed.input else {
-            return Err(UriParseError::MissingAttribute("input".to_string()));
-        };
-        let Some(original_ref) = parsed.original_ref else {
-            return Err(UriParseError::MissingAttribute("originalRef".to_string()));
-        };
-        let original_ref = ParsedFlakeReference::try_from(original_ref);
-        if original_ref.is_err() {
-            // The `Err` type of `original_ref` is the same as `Self::Error`, but the
-            // `Ok` type is different, so we do a dummy mapping in order to make it
-            // possible to just return the `Err` variant (otherwise the type checker
-            // will not allow you to return `original_ref`).
-            return original_ref.map(|_| unreachable!());
-        }
-        let Some(resolved_ref) = parsed.resolved_ref else {
-            return Err(UriParseError::MissingAttribute("resolvedRef".to_string()));
-        };
-        let resolved_ref = ParsedFlakeReference::try_from(resolved_ref);
-        if resolved_ref.is_err() {
-            // See the comment above about why we're doing this `todo!` mapping
-            return resolved_ref.map(|_| unreachable!());
-        }
-        let Some(locked_ref) = parsed.locked_ref else {
-            return Err(UriParseError::MissingAttribute("lockedRef".to_string()));
-        };
-        let locked_ref = ParsedFlakeReference::try_from(locked_ref);
-        if locked_ref.is_err() {
-            // See the comment above about why we're doing this `todo!` mapping
-            return locked_ref.map(|_| unreachable!());
-        }
+    fn try_from(mut parsed: GenericParsedURI) -> Result<Self, Self::Error> {
+        let locked_ref = parsed
+            .locked_ref
+            .take()
+            .ok_or_else(|| UriParseError::MissingAttribute("lockedRef".to_string()))
+            .and_then(ParsedFlakeReference::try_from)?;
+
+        let ResolvedFlakeRef {
+            input,
+            original_ref,
+            resolved_ref,
+        } = ResolvedFlakeRef::try_from(parsed)?;
+
         Ok(LockedFlakeRef {
             input,
-            original_ref: original_ref.unwrap(), // already checked for error case
-            resolved_ref: resolved_ref.unwrap(), // already checked for error case
-            locked_ref: locked_ref.unwrap(),     // already checked for error case
+            original_ref,
+            resolved_ref,
+            locked_ref,
         })
     }
 }
@@ -175,28 +147,27 @@ impl TryFrom<GenericParsedURI> for InstallableFlakeRef {
     type Error = UriParseError;
 
     fn try_from(parsed: GenericParsedURI) -> Result<Self, Self::Error> {
-        let Some(input) = parsed.input else {
-            return Err(UriParseError::MissingAttribute("input".to_string()));
-        };
-        let Some(attr_path) = parsed.attr_path else {
-            return Err(UriParseError::MissingAttribute("attrPath".to_string()));
-        };
-        let Some(outputs) = parsed.outputs else {
-            return Err(UriParseError::MissingAttribute("outputs".to_string()));
-        };
-        // Calling this 'rref' so we don't have to keep using raw identifier syntax
-        let Some(rref) = parsed.r#ref else {
-            return Err(UriParseError::MissingAttribute("ref".to_string()));
-        };
-        let rref = ParsedFlakeReference::try_from(rref);
-        if rref.is_err() {
-            return rref.map(|_| unreachable!());
-        }
+        let input = parsed
+            .input
+            .ok_or_else(|| UriParseError::MissingAttribute("input".to_string()))?;
+
+        let attr_path = parsed
+            .attr_path
+            .ok_or_else(|| UriParseError::MissingAttribute("attrPath".to_string()))?;
+
+        let outputs = parsed
+            .outputs
+            .ok_or_else(|| UriParseError::MissingAttribute("outputs".to_string()))?;
+        let r#ref = parsed
+            .r#ref
+            .ok_or_else(|| UriParseError::MissingAttribute("ref".to_string()))
+            .and_then(ParsedFlakeReference::try_from)?;
+
         Ok(InstallableFlakeRef {
             input,
             attr_path,
             outputs,
-            r#ref: rref.unwrap(), // already checked for error case
+            r#ref,
         })
     }
 }
