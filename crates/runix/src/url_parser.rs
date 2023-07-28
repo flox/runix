@@ -205,7 +205,9 @@ pub struct Scheme {
 /// The type and contents of the input the URL parser received.
 #[derive(Debug, Deserialize, Clone)]
 pub enum Input {
-    String(String),
+    // A flake reference supplied as a URL
+    URL(String),
+    // A flake reference supplied as an attribute set
     Attrs(Attrs),
 }
 
@@ -222,7 +224,7 @@ where
     };
     use Value::*;
     match json_value {
-        String(string) => Ok(Some(Input::String(string))),
+        String(string) => Ok(Some(Input::URL(string))),
         Object(map) => {
             let attrs = map
                 .iter()
