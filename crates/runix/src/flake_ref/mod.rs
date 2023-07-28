@@ -86,7 +86,7 @@ impl FromStr for FlakeRef {
         let Some(bin_path) = url_parser::PARSER_UTIL_BIN_PATH.get() else {
             return Err(UrlParseError::BinPathNotSet);
         };
-        FlakeRef::from_uri(s, bin_path)
+        FlakeRef::from_url(s, bin_path)
     }
 }
 
@@ -207,7 +207,7 @@ impl FlakeRef {
     }
 
     /// Parses a URI into a flake reference given the URI and the path to the `parser-util` binary
-    pub fn from_uri<T: AsRef<str>>(uri: T, bin_path: &Path) -> Result<Self, UrlParseError> {
+    pub fn from_url<T: AsRef<str>>(uri: T, bin_path: &Path) -> Result<Self, UrlParseError> {
         let parsed = url_parser::resolve_flake_ref(uri, bin_path)?;
         let parsed_ref = parsed.original_ref;
         match parsed_ref.flake_type {
@@ -493,98 +493,98 @@ pub(super) mod tests {
     fn test_all_parsing() {
         let bin_path = url_parser::get_bin();
         assert!(matches!(
-            FlakeRef::from_uri("file+file:///somewhere/there", &bin_path).unwrap(),
+            FlakeRef::from_url("file+file:///somewhere/there", &bin_path).unwrap(),
             FlakeRef::FileFile(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("file:///somewhere/there", &bin_path).unwrap(),
+            FlakeRef::from_url("file:///somewhere/there", &bin_path).unwrap(),
             FlakeRef::FileFile(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("file+http://my.de/path/to/file", &bin_path).unwrap(),
+            FlakeRef::from_url("file+http://my.de/path/to/file", &bin_path).unwrap(),
             FlakeRef::FileHTTP(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("http://my.de/path/to/file", &bin_path).unwrap(),
+            FlakeRef::from_url("http://my.de/path/to/file", &bin_path).unwrap(),
             FlakeRef::FileHTTP(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("file+https://my.de/path/to/file", &bin_path).unwrap(),
+            FlakeRef::from_url("file+https://my.de/path/to/file", &bin_path).unwrap(),
             FlakeRef::FileHTTPS(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("https://my.de/path/to/file", &bin_path).unwrap(),
+            FlakeRef::from_url("https://my.de/path/to/file", &bin_path).unwrap(),
             FlakeRef::FileHTTPS(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("tarball+file:///somewhere/there", &bin_path).unwrap(),
+            FlakeRef::from_url("tarball+file:///somewhere/there", &bin_path).unwrap(),
             FlakeRef::TarballFile(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("file:///somewhere/there.tar.gz", &bin_path).unwrap(),
+            FlakeRef::from_url("file:///somewhere/there.tar.gz", &bin_path).unwrap(),
             FlakeRef::TarballFile(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("tarball+http://my.de/path/to/file", &bin_path).unwrap(),
+            FlakeRef::from_url("tarball+http://my.de/path/to/file", &bin_path).unwrap(),
             FlakeRef::TarballHTTP(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("http://my.de/path/to/file.tar.gz", &bin_path).unwrap(),
+            FlakeRef::from_url("http://my.de/path/to/file.tar.gz", &bin_path).unwrap(),
             FlakeRef::TarballHTTP(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("tarball+https://my.de/path/to/file", &bin_path).unwrap(),
+            FlakeRef::from_url("tarball+https://my.de/path/to/file", &bin_path).unwrap(),
             FlakeRef::TarballHTTPS(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("https://my.de/path/to/file.tar.gz", &bin_path).unwrap(),
+            FlakeRef::from_url("https://my.de/path/to/file.tar.gz", &bin_path).unwrap(),
             FlakeRef::TarballHTTPS(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("github:flox/runix", &bin_path).unwrap(),
+            FlakeRef::from_url("github:flox/runix", &bin_path).unwrap(),
             FlakeRef::Github(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("gitlab:flox/runix", &bin_path).unwrap(),
+            FlakeRef::from_url("gitlab:flox/runix", &bin_path).unwrap(),
             FlakeRef::Gitlab(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("path:/somewhere/there", &bin_path).unwrap(),
+            FlakeRef::from_url("path:/somewhere/there", &bin_path).unwrap(),
             FlakeRef::Path(_)
         ));
 
         let tempdir = tempfile::tempdir().unwrap();
         File::create(tempdir.path().join("flake.nix")).unwrap();
         assert!(matches!(
-            FlakeRef::from_uri(&tempdir.path().to_string_lossy(), &bin_path).unwrap(),
+            FlakeRef::from_url(&tempdir.path().to_string_lossy(), &bin_path).unwrap(),
             FlakeRef::Path(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("git+file:///somewhere/there", &bin_path).unwrap(),
+            FlakeRef::from_url("git+file:///somewhere/there", &bin_path).unwrap(),
             FlakeRef::GitPath(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("./", &bin_path).unwrap(),
+            FlakeRef::from_url("./", &bin_path).unwrap(),
             FlakeRef::Path(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("git+ssh://github.com/flox/runix", &bin_path).unwrap(),
+            FlakeRef::from_url("git+ssh://github.com/flox/runix", &bin_path).unwrap(),
             FlakeRef::GitSsh(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("git+https://github.com/flox/runix", &bin_path).unwrap(),
+            FlakeRef::from_url("git+https://github.com/flox/runix", &bin_path).unwrap(),
             FlakeRef::GitHttps(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("git+http://github.com/flox/runix", &bin_path).unwrap(),
+            FlakeRef::from_url("git+http://github.com/flox/runix", &bin_path).unwrap(),
             FlakeRef::GitHttp(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("flake:nixpkgs", &bin_path).unwrap(),
+            FlakeRef::from_url("flake:nixpkgs", &bin_path).unwrap(),
             FlakeRef::Indirect(_)
         ));
         assert!(matches!(
-            FlakeRef::from_uri("nixpkgs", &bin_path).unwrap(),
+            FlakeRef::from_url("nixpkgs", &bin_path).unwrap(),
             FlakeRef::Indirect(_)
         ));
     }

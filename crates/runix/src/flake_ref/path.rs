@@ -151,7 +151,7 @@ mod tests {
     fn parses_path_flakeref() {
         let bin_path = url_parser::get_bin();
         assert_eq!(
-            FlakeRef::from_uri("path:/can/be/missing", &bin_path).unwrap(),
+            FlakeRef::from_url("path:/can/be/missing", &bin_path).unwrap(),
             FlakeRef::Path(PathRef::from_str("path:/can/be/missing").unwrap())
         );
     }

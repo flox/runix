@@ -165,7 +165,7 @@ mod tests {
             id: "nixpkgs".to_string(),
             attributes: expected_attrs,
         };
-        let actual_flakeref = FlakeRef::from_uri("nixpkgs", &bin_path).unwrap();
+        let actual_flakeref = FlakeRef::from_url("nixpkgs", &bin_path).unwrap();
         let expected_flakeref = FlakeRef::Indirect(expected);
         assert_eq!(actual_flakeref, expected_flakeref);
     }
