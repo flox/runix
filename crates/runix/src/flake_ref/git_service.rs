@@ -11,14 +11,14 @@ use url::Url;
 use self::service::GitService;
 use super::lock::{LastModified, NarHash, Rev, RevOrRef};
 use super::{Attrs, FlakeRefSource};
-use crate::uri_parser::{
+use crate::url_parser::{
     extract_dir_attr,
     extract_host_attr,
     extract_last_modified_attr,
     extract_nar_hash_attr,
     extract_ref_attr,
     extract_rev_attr,
-    UriParseError,
+    UrlParseError,
 };
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
@@ -55,7 +55,7 @@ pub struct GitServiceAttributes {
 }
 
 impl TryFrom<Attrs> for GitServiceAttributes {
-    type Error = UriParseError;
+    type Error = UrlParseError;
 
     fn try_from(attrs: Attrs) -> Result<Self, Self::Error> {
         let host = extract_host_attr(&attrs)?;

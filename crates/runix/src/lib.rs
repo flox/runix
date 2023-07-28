@@ -210,7 +210,7 @@ pub mod installable;
 pub mod narinfo;
 pub mod registry;
 pub mod store_path;
-pub mod uri_parser;
+pub mod url_parser;
 
 // TODO drop in favor of store_path::StorePath
 pub type DerivationPath = PathBuf;

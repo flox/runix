@@ -12,11 +12,11 @@ use self::application::{Application, ApplicationProtocol};
 use super::lock::NarHash;
 use super::protocol::{self, Protocol, WrappedUrl, WrappedUrlParseError};
 use super::{Attrs, FlakeRefSource};
-use crate::uri_parser::{
+use crate::url_parser::{
     extract_name_attr,
     extract_nar_hash_attr,
     extract_unpack_attr,
-    UriParseError,
+    UrlParseError,
 };
 
 pub type FileUrl<Protocol> = WrappedUrl<Protocol>;
@@ -52,7 +52,7 @@ pub struct FileAttributes {
 }
 
 impl TryFrom<Attrs> for FileAttributes {
-    type Error = UriParseError;
+    type Error = UrlParseError;
 
     fn try_from(attrs: Attrs) -> Result<Self, Self::Error> {
         let nar_hash = extract_nar_hash_attr(&attrs)?;

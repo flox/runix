@@ -21,7 +21,7 @@ pub(crate) static PARSER_UTIL_BIN_PATH: OnceCell<PathBuf> = OnceCell::new();
 /// types. Others are error cases that we inflict upon ourselves trying to strongly type
 /// the parsed data we get back from Nix/`parser-util`.
 #[derive(Debug, thiserror::Error)]
-pub enum UriParseError {
+pub enum UrlParseError {
     // These are errors finding or setting the path to the `parser-util` binary
     #[error("could not set the path to the `parser-util` binary")]
     FailedSettingBinPath,
@@ -47,7 +47,7 @@ pub enum UriParseError {
     UnrecognizedFlakeType(String),
     #[error("failed to deserialize JSON")]
     Deserialize(#[from] serde_json::Error),
-    #[error("parsed URI was missing attribute '{0}'")]
+    #[error("parsed URL was missing attribute '{0}'")]
     MissingAttribute(String),
     // Everything after this point is self-inflicted trying to strongly type what Nix gave us
     #[error("bad timestamp")]
@@ -66,7 +66,7 @@ pub enum UriParseError {
     Other(String),
 }
 
-/// A flake reference URI that has been resolved by Nix, but has not been
+/// A flake reference URL that has been resolved by Nix, but has not been
 /// checked that it exists i.e. locked.
 #[derive(Debug, Clone)]
 pub struct ResolvedFlakeRef {
@@ -75,20 +75,20 @@ pub struct ResolvedFlakeRef {
     pub resolved_ref: ParsedFlakeReference,
 }
 
-impl TryFrom<GenericParsedURI> for ResolvedFlakeRef {
-    type Error = UriParseError;
+impl TryFrom<GenericParsedURL> for ResolvedFlakeRef {
+    type Error = UrlParseError;
 
-    fn try_from(parsed: GenericParsedURI) -> Result<Self, Self::Error> {
+    fn try_from(parsed: GenericParsedURL) -> Result<Self, Self::Error> {
         let input = parsed
             .input
-            .ok_or_else(|| UriParseError::MissingAttribute("input".to_string()))?;
+            .ok_or_else(|| UrlParseError::MissingAttribute("input".to_string()))?;
         let original_ref = parsed
             .original_ref
-            .ok_or_else(|| UriParseError::MissingAttribute("originalRef".to_string()))
+            .ok_or_else(|| UrlParseError::MissingAttribute("originalRef".to_string()))
             .and_then(ParsedFlakeReference::try_from)?;
         let resolved_ref = parsed
             .resolved_ref
-            .ok_or_else(|| UriParseError::MissingAttribute("resolvedRef".to_string()))
+            .ok_or_else(|| UrlParseError::MissingAttribute("resolvedRef".to_string()))
             .and_then(ParsedFlakeReference::try_from)?;
 
         Ok(ResolvedFlakeRef {
@@ -99,7 +99,7 @@ impl TryFrom<GenericParsedURI> for ResolvedFlakeRef {
     }
 }
 
-/// A flake reference URI that has been resolved and checked by Nix that it exists
+/// A flake reference URL that has been resolved and checked by Nix that it exists
 /// i.e. locked.
 #[derive(Debug, Clone)]
 pub struct LockedFlakeRef {
@@ -109,14 +109,14 @@ pub struct LockedFlakeRef {
     pub locked_ref: ParsedFlakeReference,
 }
 
-impl TryFrom<GenericParsedURI> for LockedFlakeRef {
-    type Error = UriParseError;
+impl TryFrom<GenericParsedURL> for LockedFlakeRef {
+    type Error = UrlParseError;
 
-    fn try_from(mut parsed: GenericParsedURI) -> Result<Self, Self::Error> {
+    fn try_from(mut parsed: GenericParsedURL) -> Result<Self, Self::Error> {
         let locked_ref = parsed
             .locked_ref
             .take()
-            .ok_or_else(|| UriParseError::MissingAttribute("lockedRef".to_string()))
+            .ok_or_else(|| UrlParseError::MissingAttribute("lockedRef".to_string()))
             .and_then(ParsedFlakeReference::try_from)?;
 
         let ResolvedFlakeRef {
@@ -134,7 +134,7 @@ impl TryFrom<GenericParsedURI> for LockedFlakeRef {
     }
 }
 
-/// A flake reference URI pointing to an installable that has been resolved by Nix
+/// A flake reference URL pointing to an installable that has been resolved by Nix
 #[derive(Debug, Clone)]
 pub struct InstallableFlakeRef {
     pub input: Input,
@@ -143,24 +143,24 @@ pub struct InstallableFlakeRef {
     pub r#ref: ParsedFlakeReference,
 }
 
-impl TryFrom<GenericParsedURI> for InstallableFlakeRef {
-    type Error = UriParseError;
+impl TryFrom<GenericParsedURL> for InstallableFlakeRef {
+    type Error = UrlParseError;
 
-    fn try_from(parsed: GenericParsedURI) -> Result<Self, Self::Error> {
+    fn try_from(parsed: GenericParsedURL) -> Result<Self, Self::Error> {
         let input = parsed
             .input
-            .ok_or_else(|| UriParseError::MissingAttribute("input".to_string()))?;
+            .ok_or_else(|| UrlParseError::MissingAttribute("input".to_string()))?;
 
         let attr_path = parsed
             .attr_path
-            .ok_or_else(|| UriParseError::MissingAttribute("attrPath".to_string()))?;
+            .ok_or_else(|| UrlParseError::MissingAttribute("attrPath".to_string()))?;
 
         let outputs = parsed
             .outputs
-            .ok_or_else(|| UriParseError::MissingAttribute("outputs".to_string()))?;
+            .ok_or_else(|| UrlParseError::MissingAttribute("outputs".to_string()))?;
         let r#ref = parsed
             .r#ref
-            .ok_or_else(|| UriParseError::MissingAttribute("ref".to_string()))
+            .ok_or_else(|| UrlParseError::MissingAttribute("ref".to_string()))
             .and_then(ParsedFlakeReference::try_from)?;
 
         Ok(InstallableFlakeRef {
@@ -172,12 +172,12 @@ impl TryFrom<GenericParsedURI> for InstallableFlakeRef {
     }
 }
 
-/// A completely generic parsed URI i.e. a type that can represent a call to `parser_util`
+/// A completely generic parsed URL i.e. a type that can represent a call to `parser_util`
 /// with any of the flags
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)]
-struct GenericParsedURI {
+struct GenericParsedURL {
     #[serde(deserialize_with = "deserialize_input")]
     input: Option<Input>,
     original_ref: Option<DeserializedFlakeRef>,
@@ -202,7 +202,7 @@ pub struct Scheme {
     pub transport: String,
 }
 
-/// The type and contents of the input the URI parser received.
+/// The type and contents of the input the URL parser received.
 #[derive(Debug, Deserialize, Clone)]
 pub enum Input {
     String(String),
@@ -261,21 +261,21 @@ pub struct ParsedFlakeReference {
 }
 
 impl TryFrom<DeserializedFlakeRef> for ParsedFlakeReference {
-    type Error = UriParseError;
+    type Error = UrlParseError;
 
     fn try_from(flake: DeserializedFlakeRef) -> Result<Self, Self::Error> {
         use FlakeType::*;
         let Some(raw_flake_type) = flake.attrs.get("type") else {
-            return Err(UriParseError::TypeNotFound);
+            return Err(UrlParseError::TypeNotFound);
         };
         let Value::String(raw_flake_type) = raw_flake_type else {
-            return Err(UriParseError::TypeWasWrongType(raw_flake_type.clone()));
+            return Err(UrlParseError::TypeWasWrongType(raw_flake_type.clone()));
         };
         let protocol = url_scheme(flake.attrs.get("url"));
         match raw_flake_type.as_ref() {
             "git" | "mercurial" | "tarball" | "file" => {
                 if protocol.is_none() {
-                    return Err(UriParseError::ProtocolNotFound);
+                    return Err(UrlParseError::ProtocolNotFound);
                 }
             },
             _ => {},
@@ -303,7 +303,7 @@ impl TryFrom<DeserializedFlakeRef> for ParsedFlakeReference {
                 let p_type = FileProtocolType::from_str(protocol.unwrap().as_ref())?;
                 File(p_type)
             },
-            _ => return Err(UriParseError::UnrecognizedFlakeType(raw_flake_type.clone())),
+            _ => return Err(UrlParseError::UnrecognizedFlakeType(raw_flake_type.clone())),
         };
         Ok(ParsedFlakeReference {
             attrs: flake.attrs,
@@ -364,7 +364,7 @@ pub enum GitProtocolType {
 }
 
 impl FromStr for GitProtocolType {
-    type Err = UriParseError;
+    type Err = UrlParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use GitProtocolType::*;
@@ -375,7 +375,7 @@ impl FromStr for GitProtocolType {
             "git" => Git,
             "file" => File,
             "" => None,
-            _ => Err(UriParseError::InvalidProtocol(s.to_string()))?,
+            _ => Err(UrlParseError::InvalidProtocol(s.to_string()))?,
         };
         Ok(ty)
     }
@@ -391,7 +391,7 @@ pub enum MercurialProtocolType {
 }
 
 impl FromStr for MercurialProtocolType {
-    type Err = UriParseError;
+    type Err = UrlParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use MercurialProtocolType::*;
@@ -400,7 +400,7 @@ impl FromStr for MercurialProtocolType {
             "https" => Https,
             "ssh" => Ssh,
             "file" => File,
-            _ => Err(UriParseError::InvalidProtocol(s.to_string()))?,
+            _ => Err(UrlParseError::InvalidProtocol(s.to_string()))?,
         };
         Ok(protocol)
     }
@@ -415,7 +415,7 @@ pub enum TarballProtocolType {
 }
 
 impl FromStr for TarballProtocolType {
-    type Err = UriParseError;
+    type Err = UrlParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use TarballProtocolType::*;
@@ -423,7 +423,7 @@ impl FromStr for TarballProtocolType {
             "http" => Http,
             "https" => Https,
             "file" => File,
-            _ => Err(UriParseError::InvalidProtocol(s.to_string()))?,
+            _ => Err(UrlParseError::InvalidProtocol(s.to_string()))?,
         };
         Ok(protocol)
     }
@@ -438,7 +438,7 @@ pub enum FileProtocolType {
 }
 
 impl FromStr for FileProtocolType {
-    type Err = UriParseError;
+    type Err = UrlParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use FileProtocolType::*;
@@ -446,24 +446,41 @@ impl FromStr for FileProtocolType {
             "http" => Http,
             "https" => Https,
             "file" => File,
-            _ => Err(UriParseError::InvalidProtocol(s.to_string()))?,
+            _ => Err(UrlParseError::InvalidProtocol(s.to_string()))?,
         };
         Ok(protocol)
     }
 }
 
+enum ResolverFlag {
+    Resolve,
+    Lock,
+    Installable,
+}
+
+impl ResolverFlag {
+    const fn as_flag(&self) -> &str {
+        match self {
+            ResolverFlag::Resolve => "-r",
+            ResolverFlag::Lock => "-l",
+            ResolverFlag::Installable => "-i",
+        }
+    }
+}
+
 /// Calls the `parser_util` binary with error handling
-fn call_bin<T>(bin_path: &Path, flag: &str, flake_ref: &T) -> Result<String, UriParseError>
-where
-    T: AsRef<str>,
-{
-    let output = Command::new(bin_path)
-        .arg(flag)
+fn call_bin(
+    bin_path: impl AsRef<Path>,
+    flag: ResolverFlag,
+    flake_ref: impl AsRef<str>,
+) -> Result<String, UrlParseError> {
+    let output = Command::new(bin_path.as_ref())
+        .arg(flag.as_flag())
         .arg(flake_ref.as_ref())
         .output()?;
     if !output.status.success() {
         let stderr = String::from_utf8(output.stderr)?;
-        Err(UriParseError::ParserError(output.status, stderr))
+        Err(UrlParseError::ParserError(output.status, stderr))
     } else {
         let stdout = String::from_utf8(output.stdout)?;
         Ok(stdout)
@@ -473,53 +490,47 @@ where
 /// Resolves and parses a flake reference without checking that the flake being referenced exists.
 ///
 /// If you'd like to check that the flake _does_ exist see [lock_flake_ref].
-pub fn resolve_flake_ref<T>(
-    flake_ref: T,
-    bin_path: &Path,
-) -> Result<ResolvedFlakeRef, UriParseError>
-where
-    T: AsRef<str>,
-{
-    let output = call_bin(bin_path, "-r", &flake_ref)?;
+pub fn resolve_flake_ref(
+    flake_ref: impl AsRef<str>,
+    bin_path: impl AsRef<Path>,
+) -> Result<ResolvedFlakeRef, UrlParseError> {
+    let output = call_bin(bin_path, ResolverFlag::Resolve, &flake_ref)?;
     // Type annotation needed here otherwise it thinks you're doing
-    // ResolvedFlakeRef::try_from::<()>(generic_parsed_uri) for some reason
-    let generic_parsed_uri: GenericParsedURI = serde_json::from_str(output.as_ref())?;
-    ResolvedFlakeRef::try_from(generic_parsed_uri)
+    // ResolvedFlakeRef::try_from::<()>(generic_parsed_url) for some reason
+    let generic_parsed_url: GenericParsedURL = serde_json::from_str(output.as_ref())?;
+    ResolvedFlakeRef::try_from(generic_parsed_url)
 }
 
 /// Parses and locks a flake reference.
-pub fn lock_flake_ref<T>(flake_ref: T, bin_path: &Path) -> Result<LockedFlakeRef, UriParseError>
-where
-    T: AsRef<str>,
-{
-    let output = call_bin(bin_path, "-l", &flake_ref)?;
+pub fn lock_flake_ref(
+    flake_ref: impl AsRef<str>,
+    bin_path: impl AsRef<Path>,
+) -> Result<LockedFlakeRef, UrlParseError> {
+    let output = call_bin(bin_path, ResolverFlag::Lock, &flake_ref)?;
     // Type annotation needed here otherwise it thinks you're doing
-    // LockedFlakeRef::try_from::<()>(generic_parsed_uri) for some reason
-    let generic_parsed_uri: GenericParsedURI = serde_json::from_str(output.as_ref())?;
-    LockedFlakeRef::try_from(generic_parsed_uri)
+    // LockedFlakeRef::try_from::<()>(generic_parsed_url) for some reason
+    let generic_parsed_url: GenericParsedURL = serde_json::from_str(output.as_ref())?;
+    LockedFlakeRef::try_from(generic_parsed_url)
 }
 
 /// Resolves a flake reference to an installable
-pub fn installable_flake_ref<T>(
-    flake_ref: T,
-    bin_path: &Path,
-) -> Result<InstallableFlakeRef, UriParseError>
-where
-    T: AsRef<str>,
-{
-    let output = call_bin(bin_path, "-i", &flake_ref)?;
+pub fn installable_flake_ref(
+    flake_ref: impl AsRef<str>,
+    bin_path: impl AsRef<Path>,
+) -> Result<InstallableFlakeRef, UrlParseError> {
+    let output = call_bin(bin_path, ResolverFlag::Installable, &flake_ref)?;
     // Type annotation needed here otherwise it thinks you're doing
-    // InstallableFlakeRef::try_from::<()>(generic_parsed_uri) for some reason
-    let generic_parsed_uri: GenericParsedURI = serde_json::from_str(output.as_ref())?;
-    InstallableFlakeRef::try_from(generic_parsed_uri)
+    // InstallableFlakeRef::try_from::<()>(generic_parsed_url) for some reason
+    let generic_parsed_url: GenericParsedURL = serde_json::from_str(output.as_ref())?;
+    InstallableFlakeRef::try_from(generic_parsed_url)
 }
 
 /// Extracts the `narHash` flake attributes
-pub(crate) fn extract_nar_hash_attr(attrs: &Attrs) -> Result<Option<NarHash>, UriParseError> {
+pub(crate) fn extract_nar_hash_attr(attrs: &Attrs) -> Result<Option<NarHash>, UrlParseError> {
     let nar_hash = match attrs.get("narHash") {
         Some(Value::String(nar_hash)) => Some(nar_hash.clone()),
         Some(v) => {
-            return Err(UriParseError::AttributeType(
+            return Err(UrlParseError::AttributeType(
                 "narHash".to_string(),
                 "String".to_string(),
                 v.clone(),
@@ -531,14 +542,14 @@ pub(crate) fn extract_nar_hash_attr(attrs: &Attrs) -> Result<Option<NarHash>, Ur
 }
 
 /// Extracts the `rev` flake attribute
-pub(crate) fn extract_rev_attr(attrs: &Attrs) -> Result<Option<Rev>, UriParseError> {
+pub(crate) fn extract_rev_attr(attrs: &Attrs) -> Result<Option<Rev>, UrlParseError> {
     let rev = match attrs.get("rev") {
         Some(Value::String(rev)) => {
             let checked_rev = Rev::from_str(rev)?;
             Some(checked_rev)
         },
         Some(v) => {
-            return Err(UriParseError::AttributeType(
+            return Err(UrlParseError::AttributeType(
                 "narHash".to_string(),
                 "String".to_string(),
                 v.clone(),
@@ -550,11 +561,11 @@ pub(crate) fn extract_rev_attr(attrs: &Attrs) -> Result<Option<Rev>, UriParseErr
 }
 
 /// Extracts the `dir` flake attribute
-pub(crate) fn extract_dir_attr(attrs: &Attrs) -> Result<Option<PathBuf>, UriParseError> {
+pub(crate) fn extract_dir_attr(attrs: &Attrs) -> Result<Option<PathBuf>, UrlParseError> {
     let dir = match attrs.get("dir") {
         Some(Value::String(dir)) => Some(PathBuf::from(dir)),
         Some(v) => {
-            return Err(UriParseError::AttributeType(
+            return Err(UrlParseError::AttributeType(
                 "dir".to_string(),
                 "String".to_string(),
                 v.clone(),
@@ -566,11 +577,11 @@ pub(crate) fn extract_dir_attr(attrs: &Attrs) -> Result<Option<PathBuf>, UriPars
 }
 
 /// Extracts the `ref` flake attribute
-pub(crate) fn extract_ref_attr(attrs: &Attrs) -> Result<Option<String>, UriParseError> {
+pub(crate) fn extract_ref_attr(attrs: &Attrs) -> Result<Option<String>, UrlParseError> {
     let reference = match attrs.get("ref") {
         Some(Value::String(reference)) => Some(reference.clone()),
         Some(v) => {
-            return Err(UriParseError::AttributeType(
+            return Err(UrlParseError::AttributeType(
                 "ref".to_string(),
                 "String".to_string(),
                 v.clone(),
@@ -584,12 +595,12 @@ pub(crate) fn extract_ref_attr(attrs: &Attrs) -> Result<Option<String>, UriParse
 /// Extracts the `lastModified` flake attribute
 pub(crate) fn extract_last_modified_attr(
     attrs: &Attrs,
-) -> Result<Option<LastModified>, UriParseError> {
+) -> Result<Option<LastModified>, UrlParseError> {
     let last_modified = match attrs.get("lastModified") {
         Some(Value::Number(last_modified)) => {
             let epoch_seconds = last_modified.as_i64();
             if epoch_seconds.is_none() {
-                return Err(UriParseError::Other(
+                return Err(UrlParseError::Other(
                     "'lastModified' did not fit in i64".to_string(),
                 ));
             }
@@ -598,7 +609,7 @@ pub(crate) fn extract_last_modified_attr(
             Some(ts)
         },
         Some(v) => {
-            return Err(UriParseError::AttributeType(
+            return Err(UrlParseError::AttributeType(
                 "narHash".to_string(),
                 "String".to_string(),
                 v.clone(),
@@ -610,11 +621,11 @@ pub(crate) fn extract_last_modified_attr(
 }
 
 /// Extracts the 'host' flake attribute
-pub(crate) fn extract_host_attr(attrs: &Attrs) -> Result<Option<String>, UriParseError> {
+pub(crate) fn extract_host_attr(attrs: &Attrs) -> Result<Option<String>, UrlParseError> {
     let host = match attrs.get("host") {
         Some(Value::String(host)) => Some(host.clone()),
         Some(v) => {
-            return Err(UriParseError::AttributeType(
+            return Err(UrlParseError::AttributeType(
                 "host".to_string(),
                 "String".to_string(),
                 v.clone(),
@@ -626,19 +637,19 @@ pub(crate) fn extract_host_attr(attrs: &Attrs) -> Result<Option<String>, UriPars
 }
 
 /// Extracts the `revCount` flake attribute
-pub(crate) fn extract_rev_count_attr(attrs: &Attrs) -> Result<Option<RevCount>, UriParseError> {
+pub(crate) fn extract_rev_count_attr(attrs: &Attrs) -> Result<Option<RevCount>, UrlParseError> {
     let rev_count = match attrs.get("revCount") {
         Some(Value::Number(rev_count_num)) => {
             let rev_count = rev_count_num.as_u64();
             if rev_count.is_none() {
-                return Err(UriParseError::Other(
+                return Err(UrlParseError::Other(
                     "couldn't convert 'revCount' attribute to u64".to_string(),
                 ));
             }
             Some(RevCount::from(rev_count.unwrap())) // already checked that it's safe
         },
         Some(v) => {
-            return Err(UriParseError::AttributeType(
+            return Err(UrlParseError::AttributeType(
                 "revCount".to_string(),
                 "Number".to_string(),
                 v.clone(),
@@ -650,11 +661,11 @@ pub(crate) fn extract_rev_count_attr(attrs: &Attrs) -> Result<Option<RevCount>, 
 }
 
 /// Extracts the `shallow` flake attribute
-pub(crate) fn extract_shallow_attr(attrs: &Attrs) -> Result<Option<bool>, UriParseError> {
+pub(crate) fn extract_shallow_attr(attrs: &Attrs) -> Result<Option<bool>, UrlParseError> {
     let shallow = match attrs.get("shallow") {
         Some(Value::Bool(shallow)) => Some(shallow),
         Some(v) => {
-            return Err(UriParseError::AttributeType(
+            return Err(UrlParseError::AttributeType(
                 "shallow".to_string(),
                 "Bool".to_string(),
                 v.clone(),
@@ -666,11 +677,11 @@ pub(crate) fn extract_shallow_attr(attrs: &Attrs) -> Result<Option<bool>, UriPar
 }
 
 /// Extracts the `submodules` flake attribute
-pub(crate) fn extract_submodules_attr(attrs: &Attrs) -> Result<Option<bool>, UriParseError> {
+pub(crate) fn extract_submodules_attr(attrs: &Attrs) -> Result<Option<bool>, UrlParseError> {
     let submodules = match attrs.get("submodules") {
         Some(Value::Bool(submodules)) => Some(submodules),
         Some(v) => {
-            return Err(UriParseError::AttributeType(
+            return Err(UrlParseError::AttributeType(
                 "submodules".to_string(),
                 "Bool".to_string(),
                 v.clone(),
@@ -682,11 +693,11 @@ pub(crate) fn extract_submodules_attr(attrs: &Attrs) -> Result<Option<bool>, Uri
 }
 
 /// Extracts the `allRefs` flake attribute
-pub(crate) fn extract_all_refs_attr(attrs: &Attrs) -> Result<Option<bool>, UriParseError> {
+pub(crate) fn extract_all_refs_attr(attrs: &Attrs) -> Result<Option<bool>, UrlParseError> {
     let all_refs = match attrs.get("allRefs") {
         Some(Value::Bool(all_refs)) => Some(all_refs),
         Some(v) => {
-            return Err(UriParseError::AttributeType(
+            return Err(UrlParseError::AttributeType(
                 "allRefs".to_string(),
                 "Bool".to_string(),
                 v.clone(),
@@ -698,11 +709,11 @@ pub(crate) fn extract_all_refs_attr(attrs: &Attrs) -> Result<Option<bool>, UriPa
 }
 
 /// Extracts the `path` flake attribute
-pub(crate) fn extract_path_attr(attrs: &Attrs) -> Result<Option<PathBuf>, UriParseError> {
+pub(crate) fn extract_path_attr(attrs: &Attrs) -> Result<Option<PathBuf>, UrlParseError> {
     let path = match attrs.get("path") {
         Some(Value::String(path)) => Some(PathBuf::from(path)),
         Some(v) => {
-            return Err(UriParseError::AttributeType(
+            return Err(UrlParseError::AttributeType(
                 "path".to_string(),
                 "String".to_string(),
                 v.clone(),
@@ -714,11 +725,11 @@ pub(crate) fn extract_path_attr(attrs: &Attrs) -> Result<Option<PathBuf>, UriPar
 }
 
 /// Extracts the `unpack` flake attribute
-pub(crate) fn extract_unpack_attr(attrs: &Attrs) -> Result<Option<bool>, UriParseError> {
+pub(crate) fn extract_unpack_attr(attrs: &Attrs) -> Result<Option<bool>, UrlParseError> {
     let unpack = match attrs.get("unpack") {
         Some(Value::Bool(unpack)) => Some(unpack),
         Some(v) => {
-            return Err(UriParseError::AttributeType(
+            return Err(UrlParseError::AttributeType(
                 "unpack".to_string(),
                 "Bool".to_string(),
                 v.clone(),
@@ -730,11 +741,11 @@ pub(crate) fn extract_unpack_attr(attrs: &Attrs) -> Result<Option<bool>, UriPars
 }
 
 /// Extracts the `name` flake attribute
-pub(crate) fn extract_name_attr(attrs: &Attrs) -> Result<Option<String>, UriParseError> {
+pub(crate) fn extract_name_attr(attrs: &Attrs) -> Result<Option<String>, UrlParseError> {
     let name = match attrs.get("name") {
         Some(Value::String(name)) => Some(name.clone()),
         Some(v) => {
-            return Err(UriParseError::AttributeType(
+            return Err(UrlParseError::AttributeType(
                 "name".to_string(),
                 "String".to_string(),
                 v.clone(),
@@ -751,7 +762,7 @@ pub(crate) fn extract_name_attr(attrs: &Attrs) -> Result<Option<String>, UriPars
 /// which only takes a &str argument so there's no way to pass the binary path to that
 /// particular method. Instead we set the path as a global variable (gross, I know) so
 /// that it can be looked up inside `from_str`.
-pub fn set_parser_util_binary_path(path: Option<PathBuf>) -> Result<(), UriParseError> {
+pub fn set_parser_util_binary_path(path: Option<PathBuf>) -> Result<(), UrlParseError> {
     match path {
         Some(pathbuf) => {
             // This is a Result, but the Ok case means we successfully set the path to
@@ -770,7 +781,7 @@ pub fn set_parser_util_binary_path(path: Option<PathBuf>) -> Result<(), UriParse
                 // See the note above about why we ignore this Result
                 let _result = PARSER_UTIL_BIN_PATH.set(pathbuf);
             },
-            Err(_) => return Err(UriParseError::BinPathNotSet),
+            Err(_) => return Err(UrlParseError::BinPathNotSet),
         },
     }
     Ok(())
@@ -859,19 +870,19 @@ mod test {
 
     #[test]
     fn deserializes_at_all() {
-        let _: GenericParsedURI = serde_json::from_str(RESOLVED_JSON).unwrap();
+        let _: GenericParsedURL = serde_json::from_str(RESOLVED_JSON).unwrap();
     }
 
     #[test]
     fn resolves_flake_ref() {
-        let parsed: GenericParsedURI = serde_json::from_str(RESOLVED_JSON).unwrap();
+        let parsed: GenericParsedURL = serde_json::from_str(RESOLVED_JSON).unwrap();
         let _: ResolvedFlakeRef = ResolvedFlakeRef::try_from(parsed).unwrap();
     }
 
     #[test]
     fn parses_binary_output() {
         let bin_path = get_bin();
-        let _parsed = resolve_flake_ref("github:flox/flox", bin_path.as_ref()).unwrap();
+        let _parsed = resolve_flake_ref("github:flox/flox", bin_path).unwrap();
     }
 
     fn fix_test_bank_path(path: &str) -> String {
@@ -893,12 +904,12 @@ mod test {
             let Value::Object(tc) = test_case else {panic!("test case wasn't an object")};
             let Some(Value::String(input)) = tc.get("input") else {panic!("missing 'input' attribute")};
             let Some(Value::Object(raw_original_ref)) = tc.get("originalRef") else {panic!("missing 'originalRef'")};
-            let resolved_flake_ref = resolve_flake_ref(input, bin_path.as_ref()).unwrap();
+            let resolved_flake_ref = resolve_flake_ref(input, &bin_path).unwrap();
             let Some(Value::Object(attrs)) = raw_original_ref.get("attrs") else {panic!("missing 'attrs' attribute")};
             let parsed_ref = resolved_flake_ref.original_ref;
             // This is comparing all of the attributes of the parsed flake reference and the parsed test case
-            // regardless of whether we actually use them in our code. This wrapper of the URI parser is
-            // intended to be a faithful representation of _everything_ that the Nix URI parser returns to us,
+            // regardless of whether we actually use them in our code. This wrapper of the URL parser is
+            // intended to be a faithful representation of _everything_ that the Nix URL parser returns to us,
             // not just the parts we use in `runix`.
             for (attr, value) in attrs.iter() {
                 if attr == "type" {

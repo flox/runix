@@ -9,7 +9,7 @@ use thiserror::Error;
 use url::Url;
 
 use super::{Attrs, FlakeRefSource};
-use crate::uri_parser::UriParseError;
+use crate::url_parser::UrlParseError;
 
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/path.cc#L46>
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, PartialOrd, Ord)]
@@ -24,12 +24,12 @@ pub struct IndirectRef {
 }
 
 impl TryFrom<Attrs> for IndirectRef {
-    type Error = UriParseError;
+    type Error = UrlParseError;
 
     fn try_from(mut attrs: Attrs) -> Result<Self, Self::Error> {
         let tag = Tag::Indirect;
         let Some(Value::String(id)) = attrs.get("id") else {
-            return Err(UriParseError::MissingAttribute("id".to_string()));
+            return Err(UrlParseError::MissingAttribute("id".to_string()));
         };
         let id = id.clone();
         let mut attributes = BTreeMap::new();
@@ -134,7 +134,7 @@ mod tests {
 
     use super::*;
     use crate::flake_ref::FlakeRef;
-    use crate::uri_parser;
+    use crate::url_parser;
 
     /// Ensure that an indirect flake ref serializes without information loss
     #[test]
@@ -153,7 +153,7 @@ mod tests {
 
     #[test]
     fn parses_registry_flakeref() {
-        let bin_path = uri_parser::get_bin();
+        let bin_path = url_parser::get_bin();
         let expected_attrs = vec![
             ("id".to_string(), "nixpkgs".to_string()),
             ("type".to_string(), "indirect".to_string()),

@@ -12,7 +12,7 @@ use url::Url;
 use super::lock::{LastModified, NarHash, Rev, RevCount};
 use super::protocol::{self, Protocol, WrappedUrl, WrappedUrlParseError};
 use super::{Attrs, FlakeRefSource, Timestamp, TimestampDeserialize};
-use crate::uri_parser::{
+use crate::url_parser::{
     extract_all_refs_attr,
     extract_dir_attr,
     extract_last_modified_attr,
@@ -22,7 +22,7 @@ use crate::uri_parser::{
     extract_rev_count_attr,
     extract_shallow_attr,
     extract_submodules_attr,
-    UriParseError,
+    UrlParseError,
 };
 
 pub type GitUrl<Protocol> = WrappedUrl<Protocol>;
@@ -64,7 +64,7 @@ pub struct GitAttributes {
 }
 
 impl TryFrom<Attrs> for GitAttributes {
-    type Error = UriParseError;
+    type Error = UrlParseError;
 
     fn try_from(attrs: Attrs) -> Result<Self, Self::Error> {
         let shallow = extract_shallow_attr(&attrs)?;
