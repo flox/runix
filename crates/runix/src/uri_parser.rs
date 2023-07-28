@@ -338,16 +338,17 @@ pub enum FlakeType {
 impl From<FlakeType> for String {
     fn from(ft: FlakeType) -> Self {
         match ft {
-            FlakeType::Path => "path".to_string(),
-            FlakeType::Git(_) => "git".to_string(),
-            FlakeType::Mercurial(_) => "mercurial".to_string(),
-            FlakeType::Tarball(_) => "tarball".to_string(),
-            FlakeType::File(_) => "file".to_string(),
-            FlakeType::Github => "github".to_string(),
-            FlakeType::Gitlab => "gitlab".to_string(),
-            FlakeType::Sourcehut => "sourcehut".to_string(),
-            FlakeType::Indirect => "indirect".to_string(),
+            FlakeType::Path => "path",
+            FlakeType::Git(_) => "git",
+            FlakeType::Mercurial(_) => "mercurial",
+            FlakeType::Tarball(_) => "tarball",
+            FlakeType::File(_) => "file",
+            FlakeType::Github => "github",
+            FlakeType::Gitlab => "gitlab",
+            FlakeType::Sourcehut => "sourcehut",
+            FlakeType::Indirect => "indirect",
         }
+        .to_string()
     }
 }
 
@@ -367,15 +368,16 @@ impl FromStr for GitProtocolType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use GitProtocolType::*;
-        match s {
-            "http" => Ok(Http),
-            "https" => Ok(Https),
-            "ssh" => Ok(Ssh),
-            "git" => Ok(Git),
-            "file" => Ok(File),
-            "" => Ok(None),
-            _ => Err(UriParseError::InvalidProtocol(s.to_string())),
-        }
+        let ty = match s {
+            "http" => Http,
+            "https" => Https,
+            "ssh" => Ssh,
+            "git" => Git,
+            "file" => File,
+            "" => None,
+            _ => Err(UriParseError::InvalidProtocol(s.to_string()))?,
+        };
+        Ok(ty)
     }
 }
 
@@ -393,13 +395,14 @@ impl FromStr for MercurialProtocolType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use MercurialProtocolType::*;
-        match s {
-            "http" => Ok(Http),
-            "https" => Ok(Https),
-            "ssh" => Ok(Ssh),
-            "file" => Ok(File),
-            _ => Err(UriParseError::InvalidProtocol(s.to_string())),
-        }
+        let protocol = match s {
+            "http" => Http,
+            "https" => Https,
+            "ssh" => Ssh,
+            "file" => File,
+            _ => Err(UriParseError::InvalidProtocol(s.to_string()))?,
+        };
+        Ok(protocol)
     }
 }
 
@@ -416,12 +419,13 @@ impl FromStr for TarballProtocolType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use TarballProtocolType::*;
-        match s {
-            "http" => Ok(Http),
-            "https" => Ok(Https),
-            "file" => Ok(File),
-            _ => Err(UriParseError::InvalidProtocol(s.to_string())),
-        }
+        let protocol = match s {
+            "http" => Http,
+            "https" => Https,
+            "file" => File,
+            _ => Err(UriParseError::InvalidProtocol(s.to_string()))?,
+        };
+        Ok(protocol)
     }
 }
 
@@ -438,12 +442,13 @@ impl FromStr for FileProtocolType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use FileProtocolType::*;
-        match s {
-            "http" => Ok(Http),
-            "https" => Ok(Https),
-            "file" => Ok(File),
-            _ => Err(UriParseError::InvalidProtocol(s.to_string())),
-        }
+        let protocol = match s {
+            "http" => Http,
+            "https" => Https,
+            "file" => File,
+            _ => Err(UriParseError::InvalidProtocol(s.to_string()))?,
+        };
+        Ok(protocol)
     }
 }
 
