@@ -10,6 +10,7 @@ use thiserror::Error;
 
 use crate::flake_ref::{FlakeRef, ParseFlakeRefError};
 use crate::store_path::StorePath;
+use crate::url_parser::UrlParseError;
 
 /// regex listing valid characters for attributes
 ///
@@ -266,6 +267,8 @@ pub enum ParseInstallableError {
     UnclosedQuote(String),
     #[error("Invalid attribute '{0}'")]
     InvalidAttr(String),
+    #[error("failed to parse URI")]
+    URLParser(#[from] UrlParseError),
 }
 
 #[cfg(test)]

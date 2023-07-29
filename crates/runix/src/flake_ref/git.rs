@@ -11,7 +11,19 @@ use url::Url;
 
 use super::lock::{LastModified, NarHash, Rev, RevCount};
 use super::protocol::{self, Protocol, WrappedUrl, WrappedUrlParseError};
-use super::{FlakeRefSource, Timestamp, TimestampDeserialize};
+use super::{Attrs, FlakeRefSource, Timestamp, TimestampDeserialize};
+use crate::url_parser::{
+    extract_all_refs_attr,
+    extract_dir_attr,
+    extract_last_modified_attr,
+    extract_nar_hash_attr,
+    extract_ref_attr,
+    extract_rev_attr,
+    extract_rev_count_attr,
+    extract_shallow_attr,
+    extract_submodules_attr,
+    UrlParseError,
+};
 
 pub type GitUrl<Protocol> = WrappedUrl<Protocol>;
 
@@ -49,6 +61,33 @@ pub struct GitAttributes {
 
     #[serde(rename = "narHash")]
     pub nar_hash: Option<NarHash>,
+}
+
+impl TryFrom<Attrs> for GitAttributes {
+    type Error = UrlParseError;
+
+    fn try_from(attrs: Attrs) -> Result<Self, Self::Error> {
+        let shallow = extract_shallow_attr(&attrs)?;
+        let submodules = extract_submodules_attr(&attrs)?;
+        let all_refs = extract_all_refs_attr(&attrs)?;
+        let rev_count = extract_rev_count_attr(&attrs)?;
+        let rev = extract_rev_attr(&attrs)?;
+        let reference = extract_ref_attr(&attrs)?;
+        let dir = extract_dir_attr(&attrs)?;
+        let last_modified = extract_last_modified_attr(&attrs)?;
+        let nar_hash = extract_nar_hash_attr(&attrs)?;
+        Ok(GitAttributes {
+            shallow,
+            submodules,
+            all_refs,
+            rev_count,
+            rev,
+            reference,
+            dir,
+            last_modified,
+            nar_hash,
+        })
+    }
 }
 
 pub trait GitProtocol: Protocol + Debug {}

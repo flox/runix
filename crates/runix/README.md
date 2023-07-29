@@ -74,8 +74,7 @@ This is the runix equivalent to:
 $ nix eval --expr '"Hello Rust"'
 ```
 
-While certainly more wordy, than its shell counterpart, its comparable to
-the same invocation, written manually:
+While certainly more wordy than its shell counterpart, it's comparable to:
 
 ```rust
 tokio::process::Command::new("nix")

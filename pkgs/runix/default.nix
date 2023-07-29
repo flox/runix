@@ -5,8 +5,6 @@
   hostPlatform,
   libiconv,
   darwin,
-  cargo,
-  rustc,
   clippy,
   inputs,
   parser-util ? inputs.parser-util.packages.parser-util,
@@ -42,5 +40,6 @@ rustPlatform.buildRustPackage {
   nativeBuildInputs = [commitizen clippy rustfmt-nightly];
 
   RUST_SRC_PATH = rustPlatform.rustLibSrc.outPath;
-  PARSER_UTIL = parser-util.outPath + "/bin/parser-util";
+  PARSER_UTIL_BIN = parser-util.outPath + "/bin/parser-util";
+  PARSER_UTIL_TEST_BANK = parser-util.src + "/tests/ref-str-to-attrs.json";
 }

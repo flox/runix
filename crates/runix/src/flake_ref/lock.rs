@@ -57,6 +57,12 @@ pub struct InvalidRev;
 #[serde(try_from = "StringOrInt")]
 pub struct RevCount(pub u64);
 
+impl From<u64> for RevCount {
+    fn from(value: u64) -> Self {
+        RevCount(value)
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 enum StringOrInt {
