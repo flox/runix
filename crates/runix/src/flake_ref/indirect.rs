@@ -134,7 +134,7 @@ mod tests {
 
     use super::*;
     use crate::flake_ref::FlakeRef;
-    use crate::url_parser;
+    use crate::url_parser::PARSER_UTIL_BIN_PATH;
 
     /// Ensure that an indirect flake ref serializes without information loss
     #[test]
@@ -153,7 +153,6 @@ mod tests {
 
     #[test]
     fn parses_registry_flakeref() {
-        let bin_path = url_parser::get_bin();
         let expected_attrs = vec![
             ("id".to_string(), "nixpkgs".to_string()),
             ("type".to_string(), "indirect".to_string()),
@@ -165,7 +164,7 @@ mod tests {
             id: "nixpkgs".to_string(),
             attributes: expected_attrs,
         };
-        let actual_flakeref = FlakeRef::from_url("nixpkgs", &bin_path).unwrap();
+        let actual_flakeref = FlakeRef::from_url("nixpkgs", PARSER_UTIL_BIN_PATH).unwrap();
         let expected_flakeref = FlakeRef::Indirect(expected);
         assert_eq!(actual_flakeref, expected_flakeref);
     }

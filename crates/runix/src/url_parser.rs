@@ -4,7 +4,6 @@ use std::process::{Command, ExitStatus};
 use std::str::FromStr;
 use std::string::FromUtf8Error;
 
-use once_cell::sync::OnceCell;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
@@ -13,7 +12,7 @@ use crate::flake_ref::lock::{InvalidRev, LastModified, NarHash, Rev, RevCount};
 use crate::flake_ref::protocol::WrappedUrlParseError;
 use crate::flake_ref::{ParseTimeError, Timestamp, TimestampDeserialize};
 
-pub(crate) static PARSER_UTIL_BIN_PATH: OnceCell<PathBuf> = OnceCell::new();
+pub static PARSER_UTIL_BIN_PATH: &str = env!("PARSER_UTIL_BIN");
 
 /// The various errors that can be encountered parsing the JSON output of `parser-util`.
 ///
@@ -692,44 +691,6 @@ pub(crate) fn extract_name_attr(attrs: &Attrs) -> Result<Option<String>, UrlPars
     Ok(name)
 }
 
-/// Sets the path to the `parser-util` binary.
-///
-/// This is mostly needed because we call `resolve_flake_ref` from inside `from_str`,
-/// which only takes a &str argument so there's no way to pass the binary path to that
-/// particular method. Instead we set the path as a global variable (gross, I know) so
-/// that it can be looked up inside `from_str`.
-pub fn set_parser_util_binary_path(path: Option<PathBuf>) -> Result<(), UrlParseError> {
-    match path {
-        Some(pathbuf) => {
-            // This is a Result, but the Ok case means we successfully set the path to
-            // the binary, and the Err case means it's _already_ set. In that case we
-            // don't really care, we just want to make sure that the path exists.
-            //
-            // In practice this has only been an error in tests where each test is run
-            // concurrently in a separate thread, so multiple tests may be attempting
-            // to set the binary path. If you run a single test that sets the binary
-            // you don't encounter an error.
-            let _result = PARSER_UTIL_BIN_PATH.set(pathbuf);
-        },
-        None => match std::env::var("PARSER_UTIL_BIN") {
-            Ok(string) => {
-                let pathbuf = PathBuf::from(string);
-                // See the note above about why we ignore this Result
-                let _result = PARSER_UTIL_BIN_PATH.set(pathbuf);
-            },
-            Err(_) => return Err(UrlParseError::BinPathNotSet),
-        },
-    }
-    Ok(())
-}
-
-#[cfg(test)]
-/// Reads the `PARSER_BIN_UTIL` environment variable to get the path to the `parser_util` binary.
-pub(crate) fn get_bin() -> PathBuf {
-    let string = std::env::var("PARSER_UTIL_BIN").unwrap();
-    PathBuf::from(string)
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -764,8 +725,6 @@ mod test {
     }
     "#;
 
-    const DUMMY_BIN_PATH: &str = "/path/to/binary";
-
     /// Converts JSON values into strings
     pub(crate) fn json2string(value: &Value) -> String {
         if let Value::String(string) = value {
@@ -773,35 +732,6 @@ mod test {
         } else {
             value.to_string()
         }
-    }
-
-    #[test]
-    fn sets_and_gets_binary_path_from_env() {
-        // We know that the PARSER_UTIL_BIN environment variable is set by the Nix shell
-        // so we should get the same path reading the environment variable directly and
-        // reading from the global variable (once it's been set).
-        let path_from_env = get_bin();
-        set_parser_util_binary_path(None).unwrap();
-        let global_path = PARSER_UTIL_BIN_PATH.get().unwrap();
-        // There's a race condition due to tests running concurrently, so we check that
-        // we either get the path in the environment or the path that was set in another
-        // test
-        let expected_path_was_set =
-            (path_from_env == *global_path) || (PathBuf::from(DUMMY_BIN_PATH) == *global_path);
-        assert!(expected_path_was_set);
-    }
-
-    #[test]
-    fn sets_and_gets_binary_path_directly() {
-        let path = PathBuf::from(DUMMY_BIN_PATH);
-        set_parser_util_binary_path(Some(path.clone())).unwrap();
-        let global_path = PARSER_UTIL_BIN_PATH.get().unwrap();
-        // There's a race condition due to tests running concurrently, so we check that
-        // we either get the path in the environment or the path that was set in another
-        // test
-        let path_from_env = get_bin();
-        let expected_path_was_set = (path == *global_path) || (path_from_env == *global_path);
-        assert!(expected_path_was_set);
     }
 
     #[test]
@@ -817,8 +747,7 @@ mod test {
 
     #[test]
     fn parses_binary_output() {
-        let bin_path = get_bin();
-        let _parsed = resolve_flake_ref("github:flox/flox", bin_path).unwrap();
+        let _parsed = resolve_flake_ref("github:flox/flox", PARSER_UTIL_BIN_PATH).unwrap();
     }
 
     fn fix_test_bank_path(path: &str) -> String {
@@ -829,7 +758,6 @@ mod test {
 
     #[test]
     fn parses_test_bank() {
-        let bin_path = get_bin();
         let test_bank_path = PathBuf::from(env!("PARSER_UTIL_TEST_BANK"));
         let f = std::fs::File::open(test_bank_path).unwrap();
         let parsed_test_bank: Value = serde_json::from_reader(f).unwrap();
@@ -840,7 +768,7 @@ mod test {
             let Value::Object(tc) = test_case else {panic!("test case wasn't an object")};
             let Some(Value::String(input)) = tc.get("input") else {panic!("missing 'input' attribute")};
             let Some(Value::Object(raw_original_ref)) = tc.get("originalRef") else {panic!("missing 'originalRef'")};
-            let resolved_flake_ref = resolve_flake_ref(input, &bin_path).unwrap();
+            let resolved_flake_ref = resolve_flake_ref(input, PARSER_UTIL_BIN_PATH).unwrap();
             let Some(Value::Object(attrs)) = raw_original_ref.get("attrs") else {panic!("missing 'attrs' attribute")};
             let parsed_ref = resolved_flake_ref.original_ref;
             // This is comparing all of the attributes of the parsed flake reference and the parsed test case
