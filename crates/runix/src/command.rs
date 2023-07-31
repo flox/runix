@@ -7,7 +7,6 @@ use serde::Deserialize;
 
 use crate::arguments::eval::EvaluationArgs;
 use crate::arguments::flake::FlakeArgs;
-use crate::arguments::legacy::LegacyArgs;
 use crate::arguments::source::SourceArgs;
 use crate::arguments::{
     BuildArgs,
@@ -274,7 +273,6 @@ impl NixCliCommand for NixCopy {
 pub struct PathInfo {
     pub eval: EvaluationArgs,
     pub flake: FlakeArgs,
-    pub legacy: LegacyArgs,
     pub source: SourceArgs,
     pub installables: InstallablesArgs,
     pub path_info: PathInfoArgs,
@@ -286,7 +284,6 @@ impl NixCliCommand for PathInfo {
     const EVAL_ARGS: Group<Self, EvaluationArgs> = Some(|d| d.eval.clone());
     const FLAKE_ARGS: Group<Self, FlakeArgs> = Some(|d| d.flake.clone());
     const INSTALLABLES: Group<Self, InstallablesArgs> = Some(|d| d.installables.clone());
-    const LEGACY_ARGS: Group<Self, LegacyArgs> = Some(|d| d.legacy.clone());
     const OWN_ARGS: Group<Self, PathInfoArgs> = Some(|d| d.path_info.clone());
     const SOURCE_ARGS: Group<Self, SourceArgs> = Some(|d| d.source.clone());
     const SUBCOMMAND: &'static [&'static str] = &["path-info"];

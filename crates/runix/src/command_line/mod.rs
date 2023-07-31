@@ -19,7 +19,6 @@ use crate::arguments::common::NixCommonArgs;
 use crate::arguments::config::NixConfigArgs;
 use crate::arguments::eval::EvaluationArgs;
 use crate::arguments::flake::FlakeArgs;
-use crate::arguments::legacy::LegacyArgs;
 use crate::arguments::source::SourceArgs;
 use crate::arguments::{InstallableArg, InstallablesArgs, NixArgs};
 use crate::{NixBackend, Run, RunJson, RunTyped};
@@ -284,7 +283,6 @@ pub trait NixCliCommand: fmt::Debug + Sized {
     const EVAL_ARGS: Group<Self, EvaluationArgs> = None;
     const SOURCE_ARGS: Group<Self, SourceArgs> = None;
     const OWN_ARGS: Group<Self, Self::Own> = None;
-    const LEGACY_ARGS: Group<Self, LegacyArgs> = None;
 
     fn args(&self) -> Vec<String> {
         let mut acc = Vec::new();
@@ -294,7 +292,6 @@ pub trait NixCliCommand: fmt::Debug + Sized {
         acc.append(&mut Self::INSTALLABLES.map_or(Vec::new(), |f| f(self).to_args()));
         acc.append(&mut Self::INSTALLABLE.map_or(Vec::new(), |f| f(self).to_args()));
         acc.append(&mut Self::OWN_ARGS.map_or(Vec::new(), |f| f(self).to_args()));
-        acc.append(&mut Self::LEGACY_ARGS.map_or(Vec::new(), |f| f(self).to_args()));
         acc
     }
 }

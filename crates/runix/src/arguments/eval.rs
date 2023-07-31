@@ -3,7 +3,6 @@
 use derive_more::{Deref, From};
 use runix_derive::ToArgs;
 
-use crate::command::Eval;
 use crate::command_line::ToArgs;
 use crate::default::flag::{Flag, FlagType};
 
