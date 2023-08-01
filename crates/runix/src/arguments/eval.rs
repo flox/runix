@@ -11,7 +11,15 @@ use crate::default::flag::{Flag, FlagType};
 /// [libcmd/common-eval-args.cc](https://github.com/NixOS/nix/blob/a6239eb5700ebb85b47bb5f12366404448361f8d/src/libcmd/common-eval-args.cc#L14-L74)
 #[derive(Clone, Default, Debug, ToArgs)]
 pub struct EvaluationArgs {
+    pub eval_store: Option<EvalStore>,
     pub impure: Impure,
+}
+
+#[derive(Clone, From, Debug, Deref, Default)]
+pub struct EvalStore(String);
+impl Flag for EvalStore {
+    const FLAG: &'static str = "--eval-store";
+    const FLAG_TYPE: FlagType<Self> = FlagType::arg();
 }
 
 #[derive(Clone, From, Debug, Deref, Default)]
