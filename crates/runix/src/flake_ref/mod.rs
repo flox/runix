@@ -7,7 +7,7 @@ use std::str::FromStr;
 
 use chrono::{NaiveDateTime, TimeZone, Utc};
 use derive_more::{Display, From};
-use log::debug;
+use log::{debug, info};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -31,7 +31,6 @@ use crate::url_parser::{
     GitProtocolType,
     TarballProtocolType,
     UrlParseError,
-    PARSER_UTIL_BIN_PATH,
 };
 
 pub mod file;
@@ -81,10 +80,76 @@ pub enum FlakeRef {
 type Attrs = HashMap<String, Value>;
 
 impl FromStr for FlakeRef {
-    type Err = UrlParseError;
+    type Err = ParseFlakeRefError;
 
+    /// Parse a flakeref string into a typed flakeref
+    ///
+    /// If not well defined, i.e. if the flakeref cannot be parsed as a url,
+    /// we resolve it either as an indirect flake or local path.
+    ///
+    /// Note: if not "well-defined" parsing flakerefs is "impure",
+    ///       i.e. depends on the state of the local system (files).
+    ///       The resulting flakeref however, serializes into well-defined form.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        FlakeRef::from_url(s, PARSER_UTIL_BIN_PATH)
+        let url = match Url::parse(s) {
+            Ok(well_defined) => well_defined,
+            Err(_) => {
+                let resolved = if FLAKE_ID_REGEX.is_match(s) {
+                    Url::parse(&format!("flake:{s}")).map_err(|e| {
+                        ParseFlakeRefError::Indirect(indirect::ParseIndirectError::Url(e))
+                    })?
+                } else {
+                    FlakeRef::resolve_local(s)?
+                };
+
+                info!("Could not parse flakeref as URL; resolved locally to '{resolved:?}'");
+
+                resolved
+            },
+        };
+
+        let flake_ref = match url.scheme() {
+            _ if FileRef::<protocol::File>::parses(&url) => {
+                FileRef::<protocol::File>::from_url(url)?.into()
+            },
+            _ if FileRef::<protocol::HTTP>::parses(&url) => {
+                FileRef::<protocol::HTTP>::from_url(url)?.into()
+            },
+            _ if FileRef::<protocol::HTTPS>::parses(&url) => {
+                FileRef::<protocol::HTTPS>::from_url(url)?.into()
+            },
+            _ if TarballRef::<protocol::File>::parses(&url) => {
+                TarballRef::<protocol::File>::from_url(url)?.into()
+            },
+            _ if TarballRef::<protocol::HTTP>::parses(&url) => {
+                TarballRef::<protocol::HTTP>::from_url(url)?.into()
+            },
+            _ if TarballRef::<protocol::HTTPS>::parses(&url) => {
+                TarballRef::<protocol::HTTPS>::from_url(url)?.into()
+            },
+            _ if GitServiceRef::<service::Github>::parses(&url) => {
+                GitServiceRef::<service::Github>::from_url(url)?.into()
+            },
+            _ if GitServiceRef::<service::Gitlab>::parses(&url) => {
+                GitServiceRef::<service::Gitlab>::from_url(url)?.into()
+            },
+            _ if PathRef::parses(&url) => PathRef::from_url(url)?.into(),
+            _ if GitRef::<protocol::File>::parses(&url) => {
+                GitRef::<protocol::File>::from_url(url)?.into()
+            },
+            _ if GitRef::<protocol::SSH>::parses(&url) => {
+                GitRef::<protocol::SSH>::from_url(url)?.into()
+            },
+            _ if GitRef::<protocol::HTTP>::parses(&url) => {
+                GitRef::<protocol::HTTP>::from_url(url)?.into()
+            },
+            _ if GitRef::<protocol::HTTPS>::parses(&url) => {
+                GitRef::<protocol::HTTPS>::from_url(url)?.into()
+            },
+            _ if IndirectRef::parses(&url) => IndirectRef::from_url(url)?.into(),
+            _ => Err(ParseFlakeRefError::Invalid)?,
+        };
+        Ok(flake_ref)
     }
 }
 
@@ -464,6 +529,7 @@ pub enum ParseTimeError {
 
 #[cfg(test)]
 pub(super) mod tests {
+    use crate::url_parser::PARSER_UTIL_BIN_PATH;
 
     #[allow(dead_code)]
     pub(super) fn roundtrip_to<T>(input: &str, output: &str)
