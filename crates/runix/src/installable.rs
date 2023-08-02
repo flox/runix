@@ -8,9 +8,10 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use thiserror::Error;
 
+use crate::command_line::DefaultArgs;
 use crate::flake_ref::{FlakeRef, ParseFlakeRefError};
 use crate::store_path::StorePath;
-use crate::url_parser::UrlParseError;
+use crate::url_parser::{UrlParseError, PARSER_UTIL_BIN_PATH};
 
 /// regex listing valid characters for attributes
 ///
@@ -210,35 +211,54 @@ impl Display for Attribute {
     }
 }
 
-impl FromStr for FlakeAttribute {
-    type Err = ParseInstallableError;
+// impl FromStr for FlakeAttribute {
+//     type Err = ParseInstallableError;
 
-    /// Parsing an installable string
-    ///
-    /// based on nix's implementation with some adaptions.
-    /// For reference nix "algorithm" is:
-    ///
-    /// 1. (impurely) turn a given string into a **url**
-    ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libexpr/flake/flakeref.cc#L72>
-    /// 2. completely circumventing the flakeref parsing for urls without scheme
-    ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libexpr/flake/flakeref.cc#L98-L99>
-    ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libexpr/flake/flakeref.cc#L112>
-    /// 3. split of the url fragment and validate with regex
-    ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libutil/url.cc>
-    /// 4. then resolve the attrpath from the fragment
-    ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libexpr/attr-path.cc#L9-L32>
-    ///
-    /// In this implementation we split of the "fragment" part,
-    /// before parsing the left hand side as a flakeref,
-    /// in order to separate the parsing of the components.
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.split_once('#') {
+//     /// Parsing an installable string
+//     ///
+//     /// based on nix's implementation with some adaptions.
+//     /// For reference nix "algorithm" is:
+//     ///
+//     /// 1. (impurely) turn a given string into a **url**
+//     ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libexpr/flake/flakeref.cc#L72>
+//     /// 2. completely circumventing the flakeref parsing for urls without scheme
+//     ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libexpr/flake/flakeref.cc#L98-L99>
+//     ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libexpr/flake/flakeref.cc#L112>
+//     /// 3. split of the url fragment and validate with regex
+//     ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libutil/url.cc>
+//     /// 4. then resolve the attrpath from the fragment
+//     ///    <https://github.com/NixOS/nix/blob/33aca20616adb872dfab1b3852fe58b948783cd2/src/libexpr/attr-path.cc#L9-L32>
+//     ///
+//     /// In this implementation we split of the "fragment" part,
+//     /// before parsing the left hand side as a flakeref,
+//     /// in order to separate the parsing of the components.
+//     fn from_str(s: &str) -> Result<Self, Self::Err> {
+//         match s.split_once('#') {
+//             Some((flakeref, attr_path)) => Ok(FlakeAttribute {
+//                 flakeref: flakeref.parse()?,
+//                 attr_path: attr_path.parse()?,
+//             }),
+//             None => Ok(FlakeAttribute {
+//                 flakeref: s.parse()?,
+//                 attr_path: AttrPath::default(),
+//             }),
+//         }
+//     }
+// }
+
+impl FlakeAttribute {
+    /// Parses an installable string
+    pub fn parse<T: AsRef<str>>(
+        installable: T,
+        nix_args: &DefaultArgs,
+    ) -> Result<Self, ParseInstallableError> {
+        match installable.as_ref().split_once('#') {
             Some((flakeref, attr_path)) => Ok(FlakeAttribute {
-                flakeref: flakeref.parse()?,
+                flakeref: FlakeRef::from_url(flakeref, PARSER_UTIL_BIN_PATH, nix_args)?,
                 attr_path: attr_path.parse()?,
             }),
             None => Ok(FlakeAttribute {
-                flakeref: s.parse()?,
+                flakeref: FlakeRef::from_url(installable, PARSER_UTIL_BIN_PATH, nix_args)?,
                 attr_path: AttrPath::default(),
             }),
         }

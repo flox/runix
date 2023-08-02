@@ -133,6 +133,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use crate::command_line::DefaultArgs;
     use crate::flake_ref::FlakeRef;
     use crate::url_parser::PARSER_UTIL_BIN_PATH;
 
@@ -164,7 +165,9 @@ mod tests {
             id: "nixpkgs".to_string(),
             attributes: expected_attrs,
         };
-        let actual_flakeref = FlakeRef::from_url("nixpkgs", PARSER_UTIL_BIN_PATH).unwrap();
+        let nix_args = DefaultArgs::default();
+        let actual_flakeref =
+            FlakeRef::from_url("nixpkgs", PARSER_UTIL_BIN_PATH, &nix_args).unwrap();
         let expected_flakeref = FlakeRef::Indirect(expected);
         assert_eq!(actual_flakeref, expected_flakeref);
     }

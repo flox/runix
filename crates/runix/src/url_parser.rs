@@ -8,6 +8,7 @@ use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
+use crate::command_line::DefaultArgs;
 use crate::flake_ref::lock::{InvalidRev, LastModified, NarHash, Rev, RevCount};
 use crate::flake_ref::protocol::WrappedUrlParseError;
 use crate::flake_ref::{ParseTimeError, Timestamp, TimestampDeserialize};
@@ -469,15 +470,32 @@ impl ResolverFlag {
     }
 }
 
+// /// Converts a [DefaultArgs] to a list of arguments necessary for calling `parser-util`
+// fn nix_args_to_parser_util_args(args: &DefaultArgs) -> Vec<String> {
+//     vec![
+//         // args.common_args.to_args(),
+//         // args.config_args.to_args(),
+//         // args.flake_args.to_args(),
+//         // args.eval_args.to_args(),
+//         // args.extra_args.clone(),
+//     ]
+//     .iter()
+//     .flatten()
+//     .cloned()
+//     .collect::<Vec<_>>()
+// }
+
 /// Calls the `parser_util` binary with error handling
 fn call_bin(
     bin_path: impl AsRef<Path>,
     flag: ResolverFlag,
     flake_ref: impl AsRef<str>,
+    nix_args: &DefaultArgs,
 ) -> Result<String, UrlParseError> {
     let output = Command::new(bin_path.as_ref())
         .arg(flag.as_flag())
         .arg(flake_ref.as_ref())
+        .envs(nix_args.environment.clone())
         .output()?;
     if !output.status.success() {
         let stderr = String::from_utf8(output.stderr)?;
@@ -494,8 +512,9 @@ fn call_bin(
 pub fn resolve_flake_ref(
     flake_ref: impl AsRef<str>,
     bin_path: impl AsRef<Path>,
+    nix_args: &DefaultArgs,
 ) -> Result<ResolvedFlakeRef, UrlParseError> {
-    let output = call_bin(bin_path, ResolverFlag::Resolve, &flake_ref)?;
+    let output = call_bin(bin_path, ResolverFlag::Resolve, &flake_ref, nix_args)?;
     // Type annotation needed here otherwise it thinks you're doing
     // ResolvedFlakeRef::try_from::<()>(generic_parsed_url) for some reason
     let generic_parsed_url: GenericParsedURL = serde_json::from_str(output.as_ref())?;
@@ -506,8 +525,9 @@ pub fn resolve_flake_ref(
 pub fn lock_flake_ref(
     flake_ref: impl AsRef<str>,
     bin_path: impl AsRef<Path>,
+    nix_args: &DefaultArgs,
 ) -> Result<LockedFlakeRef, UrlParseError> {
-    let output = call_bin(bin_path, ResolverFlag::Lock, &flake_ref)?;
+    let output = call_bin(bin_path, ResolverFlag::Lock, &flake_ref, nix_args)?;
     // Type annotation needed here otherwise it thinks you're doing
     // LockedFlakeRef::try_from::<()>(generic_parsed_url) for some reason
     let generic_parsed_url: GenericParsedURL = serde_json::from_str(output.as_ref())?;
@@ -518,8 +538,9 @@ pub fn lock_flake_ref(
 pub fn installable_flake_ref(
     flake_ref: impl AsRef<str>,
     bin_path: impl AsRef<Path>,
+    nix_args: &DefaultArgs,
 ) -> Result<InstallableFlakeRef, UrlParseError> {
-    let output = call_bin(bin_path, ResolverFlag::Installable, &flake_ref)?;
+    let output = call_bin(bin_path, ResolverFlag::Installable, &flake_ref, nix_args)?;
     // Type annotation needed here otherwise it thinks you're doing
     // InstallableFlakeRef::try_from::<()>(generic_parsed_url) for some reason
     let generic_parsed_url: GenericParsedURL = serde_json::from_str(output.as_ref())?;
@@ -747,7 +768,9 @@ mod test {
 
     #[test]
     fn parses_binary_output() {
-        let _parsed = resolve_flake_ref("github:flox/flox", PARSER_UTIL_BIN_PATH).unwrap();
+        let nix_args = DefaultArgs::default();
+        let _parsed =
+            resolve_flake_ref("github:flox/flox", PARSER_UTIL_BIN_PATH, &nix_args).unwrap();
     }
 
     fn fix_test_bank_path(path: &str) -> String {
@@ -759,6 +782,7 @@ mod test {
     #[test]
     fn parses_test_bank() {
         let test_bank_path = PathBuf::from(env!("PARSER_UTIL_TEST_BANK"));
+        let nix_args = DefaultArgs::default();
         let f = std::fs::File::open(test_bank_path).unwrap();
         let parsed_test_bank: Value = serde_json::from_reader(f).unwrap();
         let Value::Array(test_cases) = parsed_test_bank else {panic!("wasn't an array of test cases");};
@@ -768,7 +792,8 @@ mod test {
             let Value::Object(tc) = test_case else {panic!("test case wasn't an object")};
             let Some(Value::String(input)) = tc.get("input") else {panic!("missing 'input' attribute")};
             let Some(Value::Object(raw_original_ref)) = tc.get("originalRef") else {panic!("missing 'originalRef'")};
-            let resolved_flake_ref = resolve_flake_ref(input, PARSER_UTIL_BIN_PATH).unwrap();
+            let resolved_flake_ref =
+                resolve_flake_ref(input, PARSER_UTIL_BIN_PATH, &nix_args).unwrap();
             let Some(Value::Object(attrs)) = raw_original_ref.get("attrs") else {panic!("missing 'attrs' attribute")};
             let parsed_ref = resolved_flake_ref.original_ref;
             // This is comparing all of the attributes of the parsed flake reference and the parsed test case

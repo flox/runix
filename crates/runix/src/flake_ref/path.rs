@@ -144,13 +144,15 @@ mod tests {
     use chrono::{TimeZone, Utc};
 
     use super::*;
+    use crate::command_line::DefaultArgs;
     use crate::flake_ref::FlakeRef;
     use crate::url_parser::PARSER_UTIL_BIN_PATH;
 
     #[test]
     fn parses_path_flakeref() {
+        let nix_args = DefaultArgs::default();
         assert_eq!(
-            FlakeRef::from_url("path:/can/be/missing", PARSER_UTIL_BIN_PATH).unwrap(),
+            FlakeRef::from_url("path:/can/be/missing", PARSER_UTIL_BIN_PATH, &nix_args).unwrap(),
             FlakeRef::Path(PathRef::from_str("path:/can/be/missing").unwrap())
         );
     }

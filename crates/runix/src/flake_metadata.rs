@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
 
 use crate::flake_ref::lock::{Rev, RevCount};
@@ -10,7 +10,7 @@ pub type FlakeLock = serde_json::Value;
 
 /// Flake Metadata as it is exposed through `nix flake metadata`
 #[serde_as]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FlakeMetadata {
     pub description: Option<String>,
