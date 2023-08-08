@@ -14,13 +14,6 @@ use crate::url_parser::{resolve_flake_ref, UrlParseError, PARSER_UTIL_BIN_PATH};
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/path.cc#L46>
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, PartialOrd, Ord)]
 pub struct IndirectRef {
-    /// The original, unparsed flake reference
-    ///
-    /// Stored here so that it can be resolved or locked to gain more information
-    /// since `attrs` only contains attributes from the original indirect reference.
-    #[serde(skip)]
-    pub original: String,
-
     /// The name of the flake registry entry i.e. the part
     /// immediately after `flake:`
     pub id: String,
@@ -45,15 +38,6 @@ impl TryFrom<Attrs> for IndirectRef {
         let id = id.clone();
         let mut attributes = BTreeMap::new();
 
-        // We specifically inject an "unparsed" attribute right before this call
-        // so that we can pluck it out here since `try_from` only takes a single argument
-        let original = attrs
-            .remove("unparsed")
-            .ok_or_else(|| UrlParseError::MissingAttribute("unparsed"))?
-            .to_string()  // The `to_string` impl for Value adds extra quotes
-            .trim_matches('\"')
-            .to_string();
-
         for (k, v) in attrs.drain() {
             if let Value::String(string) = v {
                 // Calling Value::to_string on Value::String produces an extra
@@ -65,7 +49,6 @@ impl TryFrom<Attrs> for IndirectRef {
         }
 
         Ok(IndirectRef {
-            original,
             id,
             _type: tag,
             attributes,
@@ -81,9 +64,8 @@ pub enum Tag {
 }
 
 impl IndirectRef {
-    pub fn new(original: String, id: String, attributes: BTreeMap<String, String>) -> Self {
+    pub fn new(id: String, attributes: BTreeMap<String, String>) -> Self {
         Self {
-            original,
             id,
             _type: Tag::Indirect,
             attributes,
@@ -92,8 +74,9 @@ impl IndirectRef {
 
     /// Resolves an indirect flake reference to a concrete reference
     pub fn resolve(&self) -> Result<FlakeRef, UrlParseError> {
-        let resolved = resolve_flake_ref(self.original.clone(), PARSER_UTIL_BIN_PATH)?;
-        FlakeRef::from_parsed(self.original.clone(), &resolved.resolved_ref)
+        let json = serde_json::to_string(&self.attributes)?;
+        let resolved = resolve_flake_ref(json, PARSER_UTIL_BIN_PATH)?;
+        FlakeRef::from_parsed(&resolved.resolved_ref)
     }
 }
 
@@ -109,7 +92,6 @@ impl FlakeRefSource for IndirectRef {
         let attributes = serde_urlencoded::from_str(url.query().unwrap_or_default())?;
         let _type = Tag::Indirect;
         Ok(IndirectRef {
-            original: String::from(url),
             id,
             attributes,
             _type,
@@ -172,7 +154,6 @@ mod tests {
     fn indirect_to_from_url() {
         let original = "flake:nixpkgs-flox".to_string();
         let expect = IndirectRef {
-            original: original.clone(),
             _type: Tag::Indirect,
             id: "nixpkgs-flox".into(),
             attributes: BTreeMap::default(),
@@ -192,7 +173,6 @@ mod tests {
         .drain(..)
         .collect::<BTreeMap<_, _>>();
         let expected = IndirectRef {
-            original: original.clone(),
             _type: Tag::Indirect,
             id: "nixpkgs".to_string(),
             attributes: expected_attrs,
@@ -205,7 +185,6 @@ mod tests {
     #[test]
     fn parses_indirect_ref() {
         let expected = IndirectRef {
-            original: String::from("flake:nixpkgs"),
             _type: Tag::Indirect,
             id: "nixpkgs".to_string(),
             attributes: BTreeMap::default(),
@@ -227,20 +206,14 @@ mod tests {
             "id": "test",
         });
 
-        let original = "flake:test".to_string();
-
         let flakeref = IndirectRef {
-            original: original.clone(),
             _type: Tag::Indirect,
             id: "test".to_string(),
             attributes: Default::default(),
         };
 
         assert_eq!(serde_json::to_value(&flakeref).unwrap(), expected);
-        // The "original" field doesn't exist outside of `runix`, so we have to
-        // insert it at the right times to make the assertions pass
-        let mut serialized = serde_json::from_value::<IndirectRef>(expected).unwrap();
-        serialized.original = original;
+        let serialized = serde_json::from_value::<IndirectRef>(expected).unwrap();
         assert_eq!(serialized, flakeref);
     }
 

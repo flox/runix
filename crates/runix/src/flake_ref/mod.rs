@@ -219,9 +219,9 @@ impl FlakeRef {
         U: AsRef<str> + Clone,
         P: AsRef<Path>,
     {
-        let parsed = url_parser::installable_flake_ref(uri.clone(), bin_path)?;
+        let parsed = url_parser::installable_flake_ref(uri, bin_path)?;
         let parsed_ref = parsed.r#ref;
-        Self::from_parsed(uri, &parsed_ref)
+        Self::from_parsed(&parsed_ref)
     }
 
     /// Converts a parsed flake reference from `parser-util` to a [FlakeRef]
@@ -229,10 +229,7 @@ impl FlakeRef {
     /// This method is agnostic over the resolution level of the parsed flake reference
     /// e.g. the original flake reference, the resolved flake reference, or the locked
     /// flake reference.
-    pub fn from_parsed<U>(uri: U, parsed_ref: &ParsedFlakeReference) -> Result<Self, UrlParseError>
-    where
-        U: AsRef<str> + Clone,
-    {
+    pub fn from_parsed(parsed_ref: &ParsedFlakeReference) -> Result<Self, UrlParseError> {
         match parsed_ref.flake_type {
             FlakeType::Path => {
                 let path_ref = PathRef::try_from(parsed_ref.attrs.clone())?;
@@ -390,14 +387,7 @@ impl FlakeRef {
             // improvements.
             FlakeType::Sourcehut => Err(UrlParseError::UnsupportedService("sourcehut".to_string())),
             FlakeType::Indirect => {
-                let mut attrs = parsed_ref.attrs.clone();
-                // Store the original URL so it can be extracted later
-                // and stored on the IndirectRef
-                attrs.insert(
-                    String::from("unparsed"),
-                    Value::String(String::from(uri.as_ref())),
-                );
-                let indirect_ref = IndirectRef::try_from(attrs)?;
+                let indirect_ref = IndirectRef::try_from(parsed_ref.attrs.clone())?;
                 Ok(FlakeRef::Indirect(indirect_ref))
             },
         }
