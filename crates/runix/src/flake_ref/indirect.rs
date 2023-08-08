@@ -73,6 +73,10 @@ impl IndirectRef {
     }
 
     /// Resolves an indirect flake reference to a concrete reference
+    ///
+    /// Note that this method calls `parser-util`, which relies on the `NIX_USER_CONF_FILES`
+    /// environment variable to be set and contain conf files that point to custom registries
+    /// that you want to use for resolution, otherwise only the user's local registry is used.
     pub fn resolve(&self) -> Result<FlakeRef, UrlParseError> {
         let json = serde_json::to_string(&self.attributes)?;
         let resolved = resolve_flake_ref(json, PARSER_UTIL_BIN_PATH)?;
