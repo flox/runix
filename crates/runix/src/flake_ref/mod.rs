@@ -218,8 +218,8 @@ impl FlakeRef {
         T: AsRef<str>,
         P: AsRef<Path>,
     {
-        let parsed = url_parser::resolve_flake_ref(uri, bin_path)?;
-        let parsed_ref = parsed.original_ref;
+        let parsed = url_parser::installable_flake_ref(uri, bin_path)?;
+        let parsed_ref = parsed.r#ref;
         match parsed_ref.flake_type {
             FlakeType::Path => {
                 let path_ref = PathRef::try_from(parsed_ref.attrs)?;
@@ -575,7 +575,7 @@ pub(super) mod tests {
         ));
         assert!(matches!(
             FlakeRef::from_url("./", PARSER_UTIL_BIN_PATH).unwrap(),
-            FlakeRef::Path(_)
+            FlakeRef::GitPath(_)
         ));
         assert!(matches!(
             FlakeRef::from_url("git+ssh://github.com/flox/runix", PARSER_UTIL_BIN_PATH).unwrap(),
