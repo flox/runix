@@ -214,12 +214,12 @@ impl FlakeRef {
     }
 
     /// Parses a URI into a flake reference given the URI and the path to the `parser-util` binary
-    pub fn from_url<U, P>(uri: U, bin_path: P) -> Result<Self, UrlParseError>
+    pub fn from_url<U, P>(url: U, bin_path: P) -> Result<Self, UrlParseError>
     where
-        U: AsRef<str> + Clone,
+        U: AsRef<str>,
         P: AsRef<Path>,
     {
-        let parsed = url_parser::installable_flake_ref(uri, bin_path)?;
+        let parsed = url_parser::installable_flake_ref(url, bin_path)?;
         let parsed_ref = parsed.r#ref;
         Self::from_parsed(&parsed_ref)
     }
