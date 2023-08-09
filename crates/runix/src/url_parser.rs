@@ -239,11 +239,12 @@ where
 }
 
 /// The possible flake output types
-#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum InstallableOutputs {
-    All,
+    #[default]
     Default,
+    All,
     Selected(Vec<String>),
 }
 
