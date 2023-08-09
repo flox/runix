@@ -420,7 +420,7 @@ mod tests {
         assert_written_outputs(
             InstallableOutputs::Selected(["out", "dev", "man"].map(ToString::to_string).to_vec()),
             Some("out,dev,man"),
-            "Selected outputs (`out`, `dev`, `man`) are is printed as 'out,dev,man'",
+            "Selected outputs (`out`, `dev`, `man`) are printed as 'out,dev,man'",
         );
     }
 }
