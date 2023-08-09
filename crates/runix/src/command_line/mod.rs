@@ -234,7 +234,7 @@ impl NixCommandLine {
 
     // Set the global Nix config via the environment variables in flox.default_args so that
     // subprocesses called by `flox` (e.g. `parser-util`) can inherit them.
-    pub fn export_config_env_vars(&self) {
+    pub fn export_env_vars(&self) {
         for (name, value) in self.defaults.environment.iter() {
             std::env::set_var(name, value);
         }
