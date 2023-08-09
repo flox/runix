@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::flake_ref::{FlakeRef, ParseFlakeRefError};
 use crate::store_path::StorePath;
-use crate::url_parser::UrlParseError;
+use crate::url_parser::{InstallableOutputs, UrlParseError};
 
 /// regex listing valid characters for attributes
 ///
@@ -35,6 +35,7 @@ pub enum Installable {
 pub struct FlakeAttribute {
     pub flakeref: FlakeRef,
     pub attr_path: AttrPath,
+    pub outputs: InstallableOutputs,
 }
 
 /// The attrpath component of an installable
@@ -233,13 +234,32 @@ impl FromStr for FlakeAttribute {
     /// in order to separate the parsing of the components.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.split_once('#') {
-            Some((flakeref, attr_path)) => Ok(FlakeAttribute {
-                flakeref: flakeref.parse()?,
-                attr_path: attr_path.parse()?,
+            Some((flakeref, attr_path)) => Ok(match attr_path.split_once('^') {
+                Some((attr_path, outputs)) => {
+                    let outputs = if outputs == "*" {
+                        InstallableOutputs::All
+                    } else {
+                        InstallableOutputs::Selected(
+                            outputs.split(',').map(ToString::to_string).collect(),
+                        )
+                    };
+                    FlakeAttribute {
+                        flakeref: flakeref.parse()?,
+                        attr_path: attr_path.parse()?,
+                        outputs,
+                    }
+                },
+                None => FlakeAttribute {
+                    flakeref: flakeref.parse()?,
+                    attr_path: attr_path.parse()?,
+                    outputs: InstallableOutputs::Default,
+                },
             }),
+
             None => Ok(FlakeAttribute {
                 flakeref: s.parse()?,
                 attr_path: AttrPath::default(),
+                outputs: InstallableOutputs::Default,
             }),
         }
     }
@@ -251,6 +271,8 @@ impl Display for FlakeAttribute {
         if !self.attr_path.is_empty() {
             write!(f, "#{}", self.attr_path)?;
         }
+        write!(f, "{}", self.outputs.as_url_suffix())?;
+
         Ok(())
     }
 }
