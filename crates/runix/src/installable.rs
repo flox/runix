@@ -322,6 +322,27 @@ mod tests {
             .expect_err(&format!("({input}) was expected to fail: {description}"));
     }
 
+    fn assert_outputs(input: &str, expected: InstallableOutputs, description: &str) {
+        let actual = input.parse::<FlakeAttribute>().unwrap().outputs;
+        assert_eq!(actual, expected, "{description}");
+    }
+
+    fn assert_written_outputs(
+        input: InstallableOutputs,
+        expected: Option<&str>,
+        description: &str,
+    ) {
+        let flake_attributes = FlakeAttribute {
+            flakeref: "flake:xyz".parse().unwrap(),
+            attr_path: "a.b.c".parse().unwrap(),
+            outputs: input,
+        };
+        let s = flake_attributes.to_string();
+        let actual = s.split_once('^').map(|(_, actual)| actual);
+
+        assert_eq!(actual, expected, "{description}");
+    }
+
     #[test]
     fn attr_path_from_str() {
         assert_parse("a", "parse single attribute");
@@ -348,5 +369,58 @@ mod tests {
         AttrPath::try_from(["\"${asdf}\"", ".c"])
             .expect_err("should not parse with interpolation in the front");
         AttrPath::try_from(["x.${asdf}", "c"]).expect_err("should not parse with dynamic element");
+    }
+
+    #[test]
+    fn parse_flake_outputs() {
+        assert_outputs(
+            "flake:xyz",
+            InstallableOutputs::Default,
+            "No attributes results in default outputs",
+        );
+        assert_outputs(
+            "flake:xyz#a.b.c",
+            InstallableOutputs::Default,
+            "Attributes without output selected results in default outputs",
+        );
+        assert_outputs(
+            "flake:xyz#a.b.c^out",
+            InstallableOutputs::Selected(["out".to_string()].to_vec()),
+            "Selecting one output (`out`) is captured",
+        );
+        assert_outputs(
+            "flake:xyz#a.b.c^out,dev,man",
+            InstallableOutputs::Selected(["out", "dev", "man"].map(ToString::to_string).to_vec()),
+            "Selecting three outputs (`out`, `dev`, `man`) is captured",
+        );
+        assert_outputs(
+            "flake:xyz#a.b.c^*",
+            InstallableOutputs::All,
+            "Selecting all outputs is captured",
+        );
+    }
+
+    #[test]
+    fn write_outputs() {
+        assert_written_outputs(
+            InstallableOutputs::Default,
+            None,
+            "Default outputs are not printed",
+        );
+        assert_written_outputs(
+            InstallableOutputs::All,
+            Some("*"),
+            "All outputs wildcard is printed as '*'",
+        );
+        assert_written_outputs(
+            InstallableOutputs::Selected(["out".to_string()].to_vec()),
+            Some("out"),
+            "Selected output 'out' is printed as 'out'",
+        );
+        assert_written_outputs(
+            InstallableOutputs::Selected(["out", "dev", "man"].map(ToString::to_string).to_vec()),
+            Some("out,dev,man"),
+            "Selected outputs (`out`, `dev`, `man`) are is printed as 'out,dev,man'",
+        );
     }
 }
