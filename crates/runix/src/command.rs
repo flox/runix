@@ -121,6 +121,23 @@ impl TypedCommand for FlakeMetadata {
     type Output = crate::flake_metadata::FlakeMetadata;
 }
 
+/// `nix flake update` Command
+#[derive(Debug, Default, Clone)]
+pub struct FlakeUpdate {
+    pub eval: EvaluationArgs,
+    pub flake: FlakeArgs,
+    pub flake_ref: Option<FlakeRefArg>,
+}
+
+impl NixCliCommand for FlakeUpdate {
+    type Own = Option<FlakeRefArg>;
+
+    const EVAL_ARGS: Group<Self, EvaluationArgs> = Some(|d| d.eval.clone());
+    const FLAKE_ARGS: Group<Self, FlakeArgs> = Some(|d| d.flake.clone());
+    const OWN_ARGS: Group<Self, Self::Own> = Some(|d| d.flake_ref.clone());
+    const SUBCOMMAND: &'static [&'static str] = &["flake", "update"];
+}
+
 /// `nix develop` Command
 #[derive(Debug, Default, Clone)]
 pub struct Develop {
