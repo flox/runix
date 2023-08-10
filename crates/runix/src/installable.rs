@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::flake_ref::{FlakeRef, ParseFlakeRefError};
 use crate::store_path::StorePath;
-use crate::url_parser::{InstallableOutputs, UrlParseError};
+use crate::url_parser::UrlParseError;
 
 /// regex listing valid characters for attributes
 ///
@@ -35,7 +35,6 @@ pub enum Installable {
 pub struct FlakeAttribute {
     pub flakeref: FlakeRef,
     pub attr_path: AttrPath,
-    pub outputs: InstallableOutputs,
 }
 
 /// The attrpath component of an installable
@@ -234,32 +233,13 @@ impl FromStr for FlakeAttribute {
     /// in order to separate the parsing of the components.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.split_once('#') {
-            Some((flakeref, attr_path)) => Ok(match attr_path.split_once('^') {
-                Some((attr_path, outputs)) => {
-                    let outputs = if outputs == "*" {
-                        InstallableOutputs::All
-                    } else {
-                        InstallableOutputs::Selected(
-                            outputs.split(',').map(ToString::to_string).collect(),
-                        )
-                    };
-                    FlakeAttribute {
-                        flakeref: flakeref.parse()?,
-                        attr_path: attr_path.parse()?,
-                        outputs,
-                    }
-                },
-                None => FlakeAttribute {
-                    flakeref: flakeref.parse()?,
-                    attr_path: attr_path.parse()?,
-                    outputs: InstallableOutputs::Default,
-                },
+            Some((flakeref, attr_path)) => Ok(FlakeAttribute {
+                flakeref: flakeref.parse()?,
+                attr_path: attr_path.parse()?,
             }),
-
             None => Ok(FlakeAttribute {
                 flakeref: s.parse()?,
                 attr_path: AttrPath::default(),
-                outputs: InstallableOutputs::Default,
             }),
         }
     }
@@ -271,8 +251,6 @@ impl Display for FlakeAttribute {
         if !self.attr_path.is_empty() {
             write!(f, "#{}", self.attr_path)?;
         }
-        write!(f, "{}", self.outputs.as_url_suffix())?;
-
         Ok(())
     }
 }
@@ -322,27 +300,6 @@ mod tests {
             .expect_err(&format!("({input}) was expected to fail: {description}"));
     }
 
-    fn assert_outputs(input: &str, expected: InstallableOutputs, description: &str) {
-        let actual = input.parse::<FlakeAttribute>().unwrap().outputs;
-        assert_eq!(actual, expected, "{description}");
-    }
-
-    fn assert_written_outputs(
-        input: InstallableOutputs,
-        expected: Option<&str>,
-        description: &str,
-    ) {
-        let flake_attributes = FlakeAttribute {
-            flakeref: "flake:xyz".parse().unwrap(),
-            attr_path: "a.b.c".parse().unwrap(),
-            outputs: input,
-        };
-        let s = flake_attributes.to_string();
-        let actual = s.split_once('^').map(|(_, actual)| actual);
-
-        assert_eq!(actual, expected, "{description}");
-    }
-
     #[test]
     fn attr_path_from_str() {
         assert_parse("a", "parse single attribute");
@@ -369,58 +326,5 @@ mod tests {
         AttrPath::try_from(["\"${asdf}\"", ".c"])
             .expect_err("should not parse with interpolation in the front");
         AttrPath::try_from(["x.${asdf}", "c"]).expect_err("should not parse with dynamic element");
-    }
-
-    #[test]
-    fn parse_flake_outputs() {
-        assert_outputs(
-            "flake:xyz",
-            InstallableOutputs::Default,
-            "No attributes results in default outputs",
-        );
-        assert_outputs(
-            "flake:xyz#a.b.c",
-            InstallableOutputs::Default,
-            "Attributes without output selected results in default outputs",
-        );
-        assert_outputs(
-            "flake:xyz#a.b.c^out",
-            InstallableOutputs::Selected(["out".to_string()].to_vec()),
-            "Selecting one output (`out`) is captured",
-        );
-        assert_outputs(
-            "flake:xyz#a.b.c^out,dev,man",
-            InstallableOutputs::Selected(["out", "dev", "man"].map(ToString::to_string).to_vec()),
-            "Selecting three outputs (`out`, `dev`, `man`) is captured",
-        );
-        assert_outputs(
-            "flake:xyz#a.b.c^*",
-            InstallableOutputs::All,
-            "Selecting all outputs is captured",
-        );
-    }
-
-    #[test]
-    fn write_outputs() {
-        assert_written_outputs(
-            InstallableOutputs::Default,
-            None,
-            "Default outputs are not printed",
-        );
-        assert_written_outputs(
-            InstallableOutputs::All,
-            Some("*"),
-            "All outputs wildcard is printed as '*'",
-        );
-        assert_written_outputs(
-            InstallableOutputs::Selected(["out".to_string()].to_vec()),
-            Some("out"),
-            "Selected output 'out' is printed as 'out'",
-        );
-        assert_written_outputs(
-            InstallableOutputs::Selected(["out", "dev", "man"].map(ToString::to_string).to_vec()),
-            Some("out,dev,man"),
-            "Selected outputs (`out`, `dev`, `man`) are printed as 'out,dev,man'",
-        );
     }
 }
