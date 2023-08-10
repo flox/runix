@@ -48,6 +48,8 @@ pub enum UrlParseError {
     Deserialize(#[from] serde_json::Error),
     #[error("parsed URL was missing attribute '{0}'")]
     MissingAttribute(&'static str),
+    #[error("failed to resolve URL")]
+    ResolutionFailed,
     // Everything after this point is self-inflicted trying to strongly type what Nix gave us
     #[error("bad timestamp")]
     BadTimestamp(#[from] ParseTimeError),
@@ -83,7 +85,7 @@ impl TryFrom<GenericParsedURL> for ResolvedFlakeRef {
             .ok_or_else(|| UrlParseError::MissingAttribute("input"))?;
         let original_ref = parsed
             .original_ref
-            .ok_or_else(|| UrlParseError::MissingAttribute("originalRef"))
+            .ok_or_else(|| UrlParseError::ResolutionFailed)
             .and_then(ParsedFlakeReference::try_from)?;
         let resolved_ref = parsed
             .resolved_ref
@@ -115,7 +117,7 @@ impl TryFrom<GenericParsedURL> for LockedFlakeRef {
         let locked_ref = parsed
             .locked_ref
             .take()
-            .ok_or_else(|| UrlParseError::MissingAttribute("lockedRef"))
+            .ok_or_else(|| UrlParseError::ResolutionFailed)
             .and_then(ParsedFlakeReference::try_from)?;
 
         let ResolvedFlakeRef {

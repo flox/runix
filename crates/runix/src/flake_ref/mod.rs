@@ -29,6 +29,7 @@ use crate::url_parser::{
     FileProtocolType,
     FlakeType,
     GitProtocolType,
+    ParsedFlakeReference,
     TarballProtocolType,
     UrlParseError,
     PARSER_UTIL_BIN_PATH,
@@ -213,16 +214,25 @@ impl FlakeRef {
     }
 
     /// Parses a URI into a flake reference given the URI and the path to the `parser-util` binary
-    pub fn from_url<T, P>(uri: T, bin_path: P) -> Result<Self, UrlParseError>
+    pub fn from_url<U, P>(url: U, bin_path: P) -> Result<Self, UrlParseError>
     where
-        T: AsRef<str>,
+        U: AsRef<str>,
         P: AsRef<Path>,
     {
-        let parsed = url_parser::installable_flake_ref(uri, bin_path)?;
+        let parsed = url_parser::installable_flake_ref(url, bin_path)?;
         let parsed_ref = parsed.r#ref;
+        Self::from_parsed(&parsed_ref)
+    }
+
+    /// Converts a parsed flake reference from `parser-util` to a [FlakeRef]
+    ///
+    /// This method is agnostic over the resolution level of the parsed flake reference
+    /// e.g. the original flake reference, the resolved flake reference, or the locked
+    /// flake reference.
+    pub fn from_parsed(parsed_ref: &ParsedFlakeReference) -> Result<Self, UrlParseError> {
         match parsed_ref.flake_type {
             FlakeType::Path => {
-                let path_ref = PathRef::try_from(parsed_ref.attrs)?;
+                let path_ref = PathRef::try_from(parsed_ref.attrs.clone())?;
                 Ok(FlakeRef::Path(path_ref))
             },
             FlakeType::Git(git_protocol) => {
@@ -273,7 +283,7 @@ impl FlakeRef {
                     return Err(UrlParseError::MissingAttribute("url"));
                 };
                 let url = url.clone();
-                let file_attrs = FileAttributes::try_from(parsed_ref.attrs)?;
+                let file_attrs = FileAttributes::try_from(parsed_ref.attrs.clone())?;
                 match tarball_protocol {
                     TarballProtocolType::Http => {
                         let url: WrappedUrl<protocol::HTTP> = WrappedUrl::from_str(&url)?;
@@ -297,7 +307,7 @@ impl FlakeRef {
                     return Err(UrlParseError::MissingAttribute("url"));
                 };
                 let url = url.clone();
-                let file_attrs = FileAttributes::try_from(parsed_ref.attrs)?;
+                let file_attrs = FileAttributes::try_from(parsed_ref.attrs.clone())?;
                 match file_protocol {
                     FileProtocolType::Http => {
                         let url: WrappedUrl<protocol::HTTP> = WrappedUrl::from_str(&url)?;
@@ -335,7 +345,7 @@ impl FlakeRef {
                         return Err(UrlParseError::MissingAttribute("repo"));
                     },
                 };
-                let git_attrs = GitServiceAttributes::try_from(parsed_ref.attrs)?;
+                let git_attrs = GitServiceAttributes::try_from(parsed_ref.attrs.clone())?;
                 let git_service = GitServiceRef {
                     owner,
                     repo,
@@ -363,7 +373,7 @@ impl FlakeRef {
                         return Err(UrlParseError::MissingAttribute("repo"));
                     },
                 };
-                let git_attrs = GitServiceAttributes::try_from(parsed_ref.attrs)?;
+                let git_attrs = GitServiceAttributes::try_from(parsed_ref.attrs.clone())?;
                 let git_service = GitServiceRef {
                     owner,
                     repo,
@@ -377,7 +387,7 @@ impl FlakeRef {
             // improvements.
             FlakeType::Sourcehut => Err(UrlParseError::UnsupportedService("sourcehut".to_string())),
             FlakeType::Indirect => {
-                let indirect_ref = IndirectRef::try_from(parsed_ref.attrs)?;
+                let indirect_ref = IndirectRef::try_from(parsed_ref.attrs.clone())?;
                 Ok(FlakeRef::Indirect(indirect_ref))
             },
         }

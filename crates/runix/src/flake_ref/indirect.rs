@@ -8,17 +8,21 @@ use serde_json::Value;
 use thiserror::Error;
 use url::Url;
 
-use super::{Attrs, FlakeRefSource};
-use crate::url_parser::UrlParseError;
+use super::{Attrs, FlakeRef, FlakeRefSource};
+use crate::url_parser::{resolve_flake_ref, UrlParseError, PARSER_UTIL_BIN_PATH};
 
 /// <https://cs.github.com/NixOS/nix/blob/f225f4307662fe9a57543d0c86c28aa9fddaf0d2/src/libfetchers/path.cc#L46>
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, PartialOrd, Ord)]
 pub struct IndirectRef {
+    /// The name of the flake registry entry i.e. the part
+    /// immediately after `flake:`
     pub id: String,
 
+    /// This will always be "indirect"
     #[serde(rename = "type")]
     pub(crate) _type: Tag,
 
+    /// Contains the revision, git ref, etc specified as part of the flake reference
     #[serde(flatten)]
     pub attributes: BTreeMap<String, String>,
 }
@@ -33,6 +37,7 @@ impl TryFrom<Attrs> for IndirectRef {
         };
         let id = id.clone();
         let mut attributes = BTreeMap::new();
+
         for (k, v) in attrs.drain() {
             if let Value::String(string) = v {
                 // Calling Value::to_string on Value::String produces an extra
@@ -42,6 +47,7 @@ impl TryFrom<Attrs> for IndirectRef {
                 attributes.insert(k, v.to_string());
             }
         }
+
         Ok(IndirectRef {
             id,
             _type: tag,
@@ -64,6 +70,17 @@ impl IndirectRef {
             _type: Tag::Indirect,
             attributes,
         }
+    }
+
+    /// Resolves an indirect flake reference to a concrete reference
+    ///
+    /// Note that this method calls `parser-util`, which relies on the `NIX_USER_CONF_FILES`
+    /// environment variable to be set and contain conf files that point to custom registries
+    /// that you want to use for resolution, otherwise only the user's local registry is used.
+    pub fn resolve(&self) -> Result<FlakeRef, UrlParseError> {
+        let json = serde_json::to_string(&self)?;
+        let resolved = resolve_flake_ref(json, PARSER_UTIL_BIN_PATH)?;
+        FlakeRef::from_parsed(&resolved.resolved_ref)
     }
 }
 
@@ -131,28 +148,30 @@ pub enum ParseIndirectError {
 mod tests {
 
     use serde_json::json;
+    use temp_env::with_var;
 
     use super::*;
     use crate::flake_ref::FlakeRef;
+    use crate::registry::Registry;
     use crate::url_parser::PARSER_UTIL_BIN_PATH;
 
     /// Ensure that an indirect flake ref serializes without information loss
     #[test]
     fn indirect_to_from_url() {
+        let original = "flake:nixpkgs-flox".to_string();
         let expect = IndirectRef {
             _type: Tag::Indirect,
             id: "nixpkgs-flox".into(),
             attributes: BTreeMap::default(),
         };
 
-        let flakeref = "flake:nixpkgs-flox";
-
-        assert_eq!(flakeref.parse::<IndirectRef>().unwrap(), expect);
-        assert_eq!(expect.to_string(), flakeref);
+        assert_eq!(original.parse::<IndirectRef>().unwrap(), expect);
+        assert_eq!(expect.to_string(), original);
     }
 
     #[test]
     fn parses_registry_flakeref() {
+        let original = "nixpkgs".to_string();
         let expected_attrs = vec![
             ("id".to_string(), "nixpkgs".to_string()),
             ("type".to_string(), "indirect".to_string()),
@@ -164,7 +183,7 @@ mod tests {
             id: "nixpkgs".to_string(),
             attributes: expected_attrs,
         };
-        let actual_flakeref = FlakeRef::from_url("nixpkgs", PARSER_UTIL_BIN_PATH).unwrap();
+        let actual_flakeref = FlakeRef::from_url(original, PARSER_UTIL_BIN_PATH).unwrap();
         let expected_flakeref = FlakeRef::Indirect(expected);
         assert_eq!(actual_flakeref, expected_flakeref);
     }
@@ -179,6 +198,45 @@ mod tests {
         let actual = IndirectRef::from_str("flake:nixpkgs").unwrap();
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn resolves_indirect_ref() {
+        let expected: FlakeRef = "github:flox/runix".parse().unwrap();
+
+        // create a new registry entry,
+        // because the original global/user flake registry is managed outside of the process
+        // so we can not depend on it
+        let mut registry = Registry::default();
+        registry.set("testref", expected.clone());
+
+        // write registry to a file
+        let tempdir = tempfile::tempdir().unwrap();
+        let registry_path = tempdir.path().join("registry.json");
+        std::fs::write(
+            &registry_path,
+            serde_json::to_string_pretty(&registry).unwrap(),
+        )
+        .unwrap();
+
+        // set `flake-registry` config value to our manaaged config
+        // and resolve the `test` entry
+        // and expect to get the same entry we set to the registry above
+        with_var(
+            "NIX_CONFIG",
+            Some(format!(
+                "flake-registry = {}",
+                registry_path.to_string_lossy()
+            )),
+            || {
+                let actual = IndirectRef::from_str("flake:testref")
+                    .unwrap()
+                    .resolve()
+                    .unwrap();
+
+                assert_eq!(actual, expected);
+            },
+        )
     }
 
     #[test]
@@ -200,10 +258,8 @@ mod tests {
         };
 
         assert_eq!(serde_json::to_value(&flakeref).unwrap(), expected);
-        assert_eq!(
-            serde_json::from_value::<IndirectRef>(expected).unwrap(),
-            flakeref
-        );
+        let serialized = serde_json::from_value::<IndirectRef>(expected).unwrap();
+        assert_eq!(serialized, flakeref);
     }
 
     /// https://github.com/serde-rs/serde/issues/2423  :(
