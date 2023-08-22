@@ -92,7 +92,7 @@ impl Flag for NoLink {
 #[derive(Debug, Default, Clone, ToArgs)]
 pub struct BuildArgs {
     pub out_link: Option<OutLink>,
-    pub no_link: Option<Bundler>,
+    pub no_link: Option<NoLink>,
 }
 
 /// `nix develop` options
