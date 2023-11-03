@@ -775,15 +775,25 @@ mod test {
         let test_bank_path = PathBuf::from(env!("PARSER_UTIL_TEST_BANK"));
         let f = std::fs::File::open(test_bank_path).unwrap();
         let parsed_test_bank: Value = serde_json::from_reader(f).unwrap();
-        let Value::Array(test_cases) = parsed_test_bank else {panic!("wasn't an array of test cases");};
+        let Value::Array(test_cases) = parsed_test_bank else {
+            panic!("wasn't an array of test cases");
+        };
         for test_case in test_cases.iter() {
             // All of this is digging down into the parsed JSON test bank to get the "input"
             // and "originalRef" attributes for this test case
-            let Value::Object(tc) = test_case else {panic!("test case wasn't an object")};
-            let Some(Value::String(input)) = tc.get("input") else {panic!("missing 'input' attribute")};
-            let Some(Value::Object(raw_original_ref)) = tc.get("originalRef") else {panic!("missing 'originalRef'")};
+            let Value::Object(tc) = test_case else {
+                panic!("test case wasn't an object")
+            };
+            let Some(Value::String(input)) = tc.get("input") else {
+                panic!("missing 'input' attribute")
+            };
+            let Some(Value::Object(raw_original_ref)) = tc.get("originalRef") else {
+                panic!("missing 'originalRef'")
+            };
             let resolved_flake_ref = resolve_flake_ref(input, PARSER_UTIL_BIN_PATH).unwrap();
-            let Some(Value::Object(attrs)) = raw_original_ref.get("attrs") else {panic!("missing 'attrs' attribute")};
+            let Some(Value::Object(attrs)) = raw_original_ref.get("attrs") else {
+                panic!("missing 'attrs' attribute")
+            };
             let parsed_ref = resolved_flake_ref.original_ref;
             // This is comparing all of the attributes of the parsed flake reference and the parsed test case
             // regardless of whether we actually use them in our code. This wrapper of the URL parser is
@@ -804,7 +814,9 @@ mod test {
                     // The test bank resolved all "." paths to "/tmp/parser-util-test-root"
                     // when it was created so we need to replace "." with the _actual_
                     // current directory
-                    let Value::String(original_path) = value else {panic!("'path' attr wasn't a string")};
+                    let Value::String(original_path) = value else {
+                        panic!("'path' attr wasn't a string")
+                    };
                     let fixed_path = fix_test_bank_path(original_path);
                     let parsed_attr_value = parsed_ref
                         .attrs
