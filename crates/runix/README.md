@@ -1,5 +1,7 @@
 # runix
 
+⚠️ runix is currently not actively maintained.
+
 A typesafe interface to the [nix](https://github.com/nixos/nix) CLI.
 
 *by [flox](https://github.com/flox)*
