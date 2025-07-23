@@ -44,13 +44,13 @@ jobs:
             timeout = 0
 
       - name: check clippy
-        run: nix develop --no-update-lock-file '.#rust-env' -c cargo -Znext-lockfile-bump clippy
+        run: nix develop --no-update-lock-file '.#rust-env' -c cargo clippy -Znext-lockfile-bump
 
       - name: check format
-        run: nix develop --no-update-lock-file '.#rust-env' -c cargo -Znext-lockfile-bump fmt --check
+        run: nix develop --no-update-lock-file '.#rust-env' -c cargo fmt --check
 
       - name: run tests
-        run: nix develop --no-update-lock-file '.#rust-env' -c cargo -Znext-lockfile-bump test
+        run: nix develop --no-update-lock-file '.#rust-env' -c cargo test -Znext-lockfile-bump
 
   check:
     if: ${{ always() }}
